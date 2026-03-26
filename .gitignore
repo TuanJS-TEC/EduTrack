@@ -1,0 +1,41 @@
+# --- OS / IDE ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# --- .NET / Visual Studio build output ---
+**/bin/
+**/obj/
+**/*.dll
+**/*.pdb
+
+# --- Logs ---
+*.log
+
+# --- Node / Frontend ---
+**/node_modules/
+**/dist/
+**/.vite/
+**/.nuxt/
+**/.next/
+**/coverage/
+**/*.tsbuildinfo
+
+# --- Env / secrets (keep examples) ---
+**/.env
+**/.env.*
+!**/.env.example
+
+# --- Local tooling caches ---
+**/.cache/
+**/.eslintcache
+**/.pnpm-store/
+**/.npm/
+
