@@ -1,137 +1,117 @@
 <script setup>
-import { onMounted, ref } from 'vue'
-import { useAuthStore } from '../stores/auth'
-import { api } from '../services/api'
+import { Users, BookOpen, UserSquare, DollarSign, ArrowUpRight } from 'lucide-vue-next'
 
-const auth = useAuthStore()
-
-const loading = ref(false)
-const stats = ref(null)
-const error = ref('')
-
-async function load() {
-  loading.value = true
-  error.value = ''
-  try {
-    const { data } = await api.get('/api/dss/dashboard-hoc-luc', { params: { hocKy: 1, namHoc: '2025-2026' } })
-    stats.value = data
-  } catch (e) {
-    error.value = e?.response?.data?.message || 'Không tải được dashboard'
-  } finally {
-    loading.value = false
+const stats = [
+  {
+    id: 1,
+    title: 'TOTAL STUDENTS',
+    value: '1,248',
+    trend: '+12%',
+    trendText: 'vs last month',
+    trendUp: true,
+    icon: Users,
+    iconBg: 'bg-blue-50 text-blue-500',
+  },
+  {
+    id: 2,
+    title: 'ACTIVE CLASSES',
+    value: '42',
+    trend: '+3',
+    trendText: 'vs last month',
+    trendUp: true,
+    icon: BookOpen,
+    iconBg: 'bg-teal-50 text-teal-500',
+  },
+  {
+    id: 3,
+    title: 'TEACHERS',
+    value: '86',
+    trend: '+2',
+    trendText: 'vs last month',
+    trendUp: true,
+    icon: UserSquare,
+    iconBg: 'bg-green-50 text-green-500',
+  },
+  {
+    id: 4,
+    title: 'MONTHLY REVENUE',
+    value: '$48,250',
+    trend: '+8.4%',
+    trendText: 'vs last month',
+    trendUp: true,
+    icon: DollarSign,
+    iconBg: 'bg-orange-50 text-orange-500',
   }
-}
-
-onMounted(load)
+]
 </script>
 
 <template>
-  <div class="wrap">
-    <div class="top">
-      <div>
-        <div class="h1">Dashboard</div>
-        <div class="sub">Tổng quan học lực (HK1 • 2025-2026)</div>
+  <div class="space-y-6">
+    <!-- TOP STAT STATS (4 Cards) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div 
+        v-for="stat in stats" 
+        :key="stat.id" 
+        class="bg-white dark:bg-[#111C44] rounded-2xl p-6 shadow-sm flex items-start justify-between border border-gray-100/50 dark:border-white/5 hover:shadow-md transition-shadow"
+      >
+        <div>
+          <p class="text-xs font-bold text-gray-400 dark:text-gray-400 tracking-wider mb-2">{{ stat.title }}</p>
+          <h3 class="text-3xl font-extrabold text-[#2B3674] dark:text-white">{{ stat.value }}</h3>
+          <div class="flex items-center mt-2 text-sm">
+            <span :class="stat.trendUp ? 'text-green-500 font-bold flex items-center' : 'text-red-500 font-bold flex items-center'">
+              <ArrowUpRight v-if="stat.trendUp" :size="16" class="mr-0.5" />
+              {{ stat.trend }}
+            </span>
+            <span class="text-gray-400 ml-1.5">{{ stat.trendText }}</span>
+          </div>
+        </div>
+        <div :class="['w-12 h-12 rounded-full flex items-center justify-center', stat.iconBg]">
+          <component :is="stat.icon" :size="24" stroke-width="2" />
+        </div>
       </div>
-      <el-button :loading="loading" @click="load">Tải lại</el-button>
     </div>
 
-    <el-alert
-      :title="`Xin chào ${auth.username || 'bạn'} (role: ${auth.role || 'N/A'})`"
-      type="success"
-      show-icon
-      class="mt"
-    />
-
-    <el-alert v-if="error" :title="error" type="error" show-icon class="mt" />
-
-    <el-skeleton v-if="loading && !stats" :rows="6" animated class="mt" />
-
-    <template v-else>
-      <div class="grid mt" v-if="stats">
-        <el-card class="kpi">
-          <div class="kpiTitle">Tổng học sinh</div>
-          <div class="kpiValue">{{ stats.tongHocSinh }}</div>
-        </el-card>
-        <el-card class="kpi">
-          <div class="kpiTitle">Giỏi</div>
-          <div class="kpiValue">{{ stats.gioi }}</div>
-        </el-card>
-        <el-card class="kpi">
-          <div class="kpiTitle">Khá</div>
-          <div class="kpiValue">{{ stats.kha }}</div>
-        </el-card>
-        <el-card class="kpi">
-          <div class="kpiTitle">Trung bình</div>
-          <div class="kpiValue">{{ stats.trungBinh }}</div>
-        </el-card>
-        <el-card class="kpi">
-          <div class="kpiTitle">Yếu</div>
-          <div class="kpiValue">{{ stats.yeu }}</div>
-        </el-card>
-        <el-card class="kpi">
-          <div class="kpiTitle">Kém</div>
-          <div class="kpiValue">{{ stats.kem }}</div>
-        </el-card>
+    <!-- MAIN DASHBOARD CONTENT (Charts & Quick Actions) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Enrollment Growth ChartPlaceholder -->
+      <div class="bg-white dark:bg-[#111C44] rounded-2xl p-6 shadow-sm border border-gray-100/50 dark:border-white/5 lg:col-span-2">
+        <div class="flex justify-between items-start mb-6">
+          <div>
+            <h3 class="text-lg font-bold text-[#2B3674] dark:text-white">Enrollment Growth</h3>
+            <p class="text-sm text-gray-400 dark:text-gray-400">Students & teachers over the year</p>
+          </div>
+        </div>
+        <div class="h-[280px] w-full flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-white/10 rounded-xl">
+           <p class="text-gray-400 flex items-center gap-2"><BookOpen :size="18"/> Khung Đợi Tích hợp Biểu đồ ECharts</p>
+        </div>
       </div>
 
-      <el-card class="mt" v-if="stats">
-        <div style="font-weight: 700; margin-bottom: 8px">TB chung theo lớp</div>
-        <el-table :data="stats.theoLop" style="width: 100%">
-          <el-table-column prop="maLop" label="Mã lớp" width="120" />
-          <el-table-column prop="tenLop" label="Tên lớp" />
-          <el-table-column prop="siSo" label="Sĩ số" width="100" />
-          <el-table-column prop="tbChung" label="TB chung" width="120" />
-        </el-table>
-      </el-card>
-    </template>
+      <!-- Quick Actions -->
+      <div class="bg-white dark:bg-[#111C44] rounded-2xl p-6 shadow-sm border border-gray-100/50 dark:border-white/5">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-lg font-bold text-[#2B3674] dark:text-white">Quick Actions</h3>
+          <span class="text-xs text-gray-400 dark:text-gray-400">8 shortcuts</span>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-3">
+          <button class="flex flex-col items-center justify-center p-4 border border-blue-100 dark:border-blue-500/10 bg-blue-50/50 dark:bg-blue-500/5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors text-center group">
+            <Users :size="20" class="text-blue-500 dark:text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
+            <span class="text-xs font-bold text-[#2B3674] dark:text-gray-200">Add Student</span>
+          </button>
+          <button class="flex flex-col items-center justify-center p-4 border border-teal-100 dark:border-teal-500/10 bg-teal-50/50 dark:bg-teal-500/5 rounded-xl hover:bg-teal-50 dark:hover:bg-teal-500/10 transition-colors text-center group">
+            <UserSquare :size="20" class="text-teal-500 dark:text-teal-400 mb-2 group-hover:scale-110 transition-transform" />
+            <span class="text-xs font-bold text-[#2B3674] dark:text-gray-200">Add Teacher</span>
+          </button>
+          <button class="flex flex-col items-center justify-center p-4 border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/50 dark:bg-indigo-500/5 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors text-center group">
+            <BookOpen :size="20" class="text-indigo-500 dark:text-indigo-400 mb-2 group-hover:scale-110 transition-transform" />
+            <span class="text-xs font-bold text-[#2B3674] dark:text-gray-200">Manage Classes</span>
+          </button>
+          <button class="flex flex-col items-center justify-center p-4 border border-purple-100 dark:border-purple-500/10 bg-purple-50/50 dark:bg-purple-500/5 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-colors text-center group">
+            <Calendar :size="20" class="text-purple-500 dark:text-purple-400 mb-2 group-hover:scale-110 transition-transform" />
+            <span class="text-xs font-bold text-[#2B3674] dark:text-gray-200">View Schedule</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
-
-<style scoped>
-.wrap {
-  padding: 4px;
-}
-.top {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 12px;
-}
-.h1 {
-  font-size: 20px;
-  font-weight: 800;
-}
-.sub {
-  margin-top: 4px;
-  color: rgba(15, 23, 42, 0.7);
-}
-.mt {
-  margin-top: 12px;
-}
-.grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-}
-.kpiTitle {
-  color: rgba(15, 23, 42, 0.65);
-  font-weight: 600;
-  font-size: 12px;
-}
-.kpiValue {
-  margin-top: 6px;
-  font-weight: 900;
-  font-size: 22px;
-}
-@media (max-width: 1200px) {
-  .grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-@media (max-width: 680px) {
-  .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-</style>
-
