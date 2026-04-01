@@ -194,5 +194,5 @@ const getColor = (id) => {
         </div>
       </div>
     </div>
-  </div>
+  
 </template>

@@ -12,8 +12,7 @@ public sealed class LopHoc
     [MaxLength(100)]
     public string TenLop { get; set; } = "";
 
-    [MaxLength(20)]
-    public string? KhoiLop { get; set; }
+    public int? KhoiLop { get; set; }
 
     [MaxLength(20)]
     public string? NamHoc { get; set; }

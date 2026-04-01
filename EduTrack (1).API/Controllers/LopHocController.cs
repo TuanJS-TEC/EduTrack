@@ -12,11 +12,11 @@ namespace EduTrack.API.Controllers;
 public sealed class LopHocController(EduTrackDbContext db) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<LopHoc>>> GetAll([FromQuery] string? namHoc, [FromQuery] string? khoiLop)
+    public async Task<ActionResult<List<LopHoc>>> GetAll([FromQuery] string? namHoc, [FromQuery] int? khoiLop)
     {
         var q = db.LopHocs.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(namHoc)) q = q.Where(x => x.NamHoc == namHoc);
-        if (!string.IsNullOrWhiteSpace(khoiLop)) q = q.Where(x => x.KhoiLop == khoiLop);
+        if (khoiLop.HasValue) q = q.Where(x => x.KhoiLop == khoiLop.Value);
 
         return Ok(await q.OrderBy(x => x.TenLop).ToListAsync());
     }

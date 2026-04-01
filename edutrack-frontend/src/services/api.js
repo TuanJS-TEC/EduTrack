@@ -7,8 +7,33 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken')
   if (token) config.headers.Authorization = `Bearer ${token}`
+  
+  console.log(`📤 [API REQUEST] ${config.method?.toUpperCase()} ${config.url}`, {
+    params: config.params,
+    data: config.data,
+    headers: config.headers
+  })
   return config
 })
+
+// Response interceptor - log dữ liệu nhận về
+api.interceptors.response.use(
+  (response) => {
+    console.log(`📥 [API RESPONSE] ${response.status} ${response.config.url}`, {
+      data: response.data,
+      headers: response.headers
+    })
+    return response
+  },
+  (error) => {
+    console.error(`❌ [API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    })
+    return Promise.reject(error)
+  }
+)
 
 export const apiService = {
   // HocSinh

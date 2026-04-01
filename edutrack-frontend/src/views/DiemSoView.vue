@@ -9,6 +9,64 @@ const classFilter = ref('')
 const subjectFilter = ref('')
 const termFilter = ref(1) // 1 hoặc 2
 
+// // Mock data
+// const mockClasses = [
+//   { MaLop: '10A', TenLop: '10A' },
+//   { MaLop: '10B', TenLop: '10B' },
+//   { MaLop: '10C', TenLop: '10C' },
+//   { MaLop: '11A', TenLop: '11A' },
+//   { MaLop: '11B', TenLop: '11B' },
+//   { MaLop: '12A', TenLop: '12A' },
+//   { MaLop: '12B', TenLop: '12B' },
+//   { MaLop: '9A', TenLop: '9A' },
+// ]
+
+// const mockSubjects = [
+//   { MaMon: 'MON001', TenMon: 'Toán' },
+//   { MaMon: 'MON002', TenMon: 'Vật Lý' },
+//   { MaMon: 'MON003', TenMon: 'Hóa Học' },
+//   { MaMon: 'MON004', TenMon: 'Tiếng Anh' },
+//   { MaMon: 'MON005', TenMon: 'Ngữ Văn' },
+// ]
+
+// const mockBangDiem = {
+//   '10A_MON001_1': [
+//     { MaHS: 'HS001', HoTen: 'Trần Minh Quân', MaMon: 'MON001', HocKy: 1, DiemMieng: 8, Diem15p: 7.5, DiemGiuaKy: 8, DiemCuoiKy: 8.5, DiemTBMon: 8.1, XepLoai: 'Khá' },
+//     { MaHS: 'HS002', HoTen: 'Phạm Ngọc Linh', MaMon: 'MON001', HocKy: 1, DiemMieng: 7.5, Diem15p: 7.5, DiemGiuaKy: 7, DiemCuoiKy: 8, DiemTBMon: 7.6, XepLoai: 'Khá' },
+//     { MaHS: 'HS003', HoTen: 'Lê Đức Hưng', MaMon: 'MON001', HocKy: 1, DiemMieng: 9, Diem15p: 8.5, DiemGiuaKy: 9, DiemCuoiKy: 9.5, DiemTBMon: 9.1, XepLoai: 'Giỏi' },
+//     { MaHS: 'HS004', HoTen: 'Vương Thu Hà', MaMon: 'MON001', HocKy: 1, DiemMieng: 6.5, Diem15p: 6, DiemGiuaKy: 6.5, DiemCuoiKy: 7, DiemTBMon: 6.6, XepLoai: 'Khá' },
+//     { MaHS: 'HS005', HoTen: 'Phan Huy Hoàng', MaMon: 'MON001', HocKy: 1, DiemMieng: 8, Diem15p: 8, DiemGiuaKy: 8, DiemCuoiKy: 8, DiemTBMon: 8.0, XepLoai: 'Khá' },
+//   ],
+//   '10A_MON002_1': [
+//     { MaHS: 'HS001', HoTen: 'Trần Minh Quân', MaMon: 'MON002', HocKy: 1, DiemMieng: 7, Diem15p: 7, DiemGiuaKy: 7.5, DiemCuoiKy: 8, DiemTBMon: 7.6, XepLoai: 'Khá' },
+//     { MaHS: 'HS002', HoTen: 'Phạm Ngọc Linh', MaMon: 'MON002', HocKy: 1, DiemMieng: 8, Diem15p: 8.5, DiemGiuaKy: 8.5, DiemCuoiKy: 9, DiemTBMon: 8.6, XepLoai: 'Khá' },
+//     { MaHS: 'HS003', HoTen: 'Lê Đức Hưng', MaMon: 'MON002', HocKy: 1, DiemMieng: 8.5, Diem15p: 8, DiemGiuaKy: 8.5, DiemCuoiKy: 9, DiemTBMon: 8.6, XepLoai: 'Khá' },
+//     { MaHS: 'HS004', HoTen: 'Vương Thu Hà', MaMon: 'MON002', HocKy: 1, DiemMieng: 7, Diem15p: 6, DiemGiuaKy: 6.5, DiemCuoiKy: 7, DiemTBMon: 6.6, XepLoai: 'Khá' },
+//     { MaHS: 'HS005', HoTen: 'Phan Huy Hoàng', MaMon: 'MON002', HocKy: 1, DiemMieng: 7.5, Diem15p: 7.5, DiemGiuaKy: 7.5, DiemCuoiKy: 8, DiemTBMon: 7.7, XepLoai: 'Khá' },
+//   ],
+//   '10A_MON003_1': [
+//     { MaHS: 'HS001', HoTen: 'Trần Minh Quân', MaMon: 'MON003', HocKy: 1, DiemMieng: 9, Diem15p: 8.5, DiemGiuaKy: 9, DiemCuoiKy: 9, DiemTBMon: 8.9, XepLoai: 'Giỏi' },
+//     { MaHS: 'HS002', HoTen: 'Phạm Ngọc Linh', MaMon: 'MON003', HocKy: 1, DiemMieng: 8, Diem15p: 8, DiemGiuaKy: 8, DiemCuoiKy: 8.5, DiemTBMon: 8.1, XepLoai: 'Khá' },
+//     { MaHS: 'HS003', HoTen: 'Lê Đức Hưng', MaMon: 'MON003', HocKy: 1, DiemMieng: 8, Diem15p: 8.5, DiemGiuaKy: 8, DiemCuoiKy: 8.5, DiemTBMon: 8.3, XepLoai: 'Khá' },
+//     { MaHS: 'HS004', HoTen: 'Vương Thu Hà', MaMon: 'MON003', HocKy: 1, DiemMieng: 5, Diem15p: 5.5, DiemGiuaKy: 5, DiemCuoiKy: 5.5, DiemTBMon: 5.2, XepLoai: 'Trung Bình' },
+//     { MaHS: 'HS005', HoTen: 'Phan Huy Hoàng', MaMon: 'MON003', HocKy: 1, DiemMieng: 8.5, Diem15p: 8, DiemGiuaKy: 8.5, DiemCuoiKy: 9, DiemTBMon: 8.6, XepLoai: 'Khá' },
+//   ],
+//   '10A_MON004_1': [
+//     { MaHS: 'HS001', HoTen: 'Trần Minh Quân', MaMon: 'MON004', HocKy: 1, DiemMieng: 8.5, Diem15p: 8, DiemGiuaKy: 8, DiemCuoiKy: 8.5, DiemTBMon: 8.3, XepLoai: 'Khá' },
+//     { MaHS: 'HS002', HoTen: 'Phạm Ngọc Linh', MaMon: 'MON004', HocKy: 1, DiemMieng: 9, Diem15p: 9, DiemGiuaKy: 9, DiemCuoiKy: 9, DiemTBMon: 9.0, XepLoai: 'Giỏi' },
+//     { MaHS: 'HS003', HoTen: 'Lê Đức Hưng', MaMon: 'MON004', HocKy: 1, DiemMieng: 7.5, Diem15p: 7, DiemGiuaKy: 7.5, DiemCuoiKy: 8, DiemTBMon: 7.6, XepLoai: 'Khá' },
+//     { MaHS: 'HS004', HoTen: 'Vương Thu Hà', MaMon: 'MON004', HocKy: 1, DiemMieng: 8, Diem15p: 7.5, DiemGiuaKy: 8, DiemCuoiKy: 8.5, DiemTBMon: 8.1, XepLoai: 'Khá' },
+//     { MaHS: 'HS005', HoTen: 'Phan Huy Hoàng', MaMon: 'MON004', HocKy: 1, DiemMieng: 8, Diem15p: 8, DiemGiuaKy: 8, DiemCuoiKy: 8.5, DiemTBMon: 8.1, XepLoai: 'Khá' },
+//   ],
+//   '10A_MON005_1': [
+//     { MaHS: 'HS001', HoTen: 'Trần Minh Quân', MaMon: 'MON005', HocKy: 1, DiemMieng: 7.5, Diem15p: 7, DiemGiuaKy: 7.5, DiemCuoiKy: 8, DiemTBMon: 7.6, XepLoai: 'Khá' },
+//     { MaHS: 'HS002', HoTen: 'Phạm Ngọc Linh', MaMon: 'MON005', HocKy: 1, DiemMieng: 8, Diem15p: 8, DiemGiuaKy: 8, DiemCuoiKy: 8.5, DiemTBMon: 8.1, XepLoai: 'Khá' },
+//     { MaHS: 'HS003', HoTen: 'Lê Đức Hưng', MaMon: 'MON005', HocKy: 1, DiemMieng: 8.5, Diem15p: 8, DiemGiuaKy: 8.5, DiemCuoiKy: 9, DiemTBMon: 8.6, XepLoai: 'Khá' },
+//     { MaHS: 'HS004', HoTen: 'Vương Thu Hà', MaMon: 'MON005', HocKy: 1, DiemMieng: 7, Diem15p: 7, DiemGiuaKy: 7, DiemCuoiKy: 7, DiemTBMon: 7.0, XepLoai: 'Khá' },
+//     { MaHS: 'HS005', HoTen: 'Phan Huy Hoàng', MaMon: 'MON005', HocKy: 1, DiemMieng: 7, Diem15p: 7.5, DiemGiuaKy: 7.5, DiemCuoiKy: 8, DiemTBMon: 7.7, XepLoai: 'Khá' },
+//   ],
+// }
+
 // Dropdown data
 const classes = ref([])
 const subjects = ref([])
@@ -28,15 +86,18 @@ const initFilters = async () => {
     ])
     classes.value = classRes.data
     subjects.value = subRes.data
-
-    if (classes.value.length > 0) classFilter.value = classes.value[0].MaLop
-    if (subjects.value.length > 0) subjectFilter.value = subjects.value[0].MaMon
-
-    if (classFilter.value && subjectFilter.value) {
-      await fetchBangDiem()
-    }
   } catch (error) {
     console.error("Lỗi tải filters:", error)
+    // Use mock data as fallback
+    classes.value = mockClasses
+    subjects.value = mockSubjects
+  }
+
+  if (classes.value.length > 0) classFilter.value = classes.value[0].MaLop
+  if (subjects.value.length > 0) subjectFilter.value = subjects.value[0].MaMon
+
+  if (classFilter.value && subjectFilter.value) {
+    await fetchBangDiem()
   }
 }
 
@@ -51,6 +112,14 @@ const fetchBangDiem = async () => {
     updateCache.value = {}
   } catch (error) {
     console.error("Lỗi lấy Bảng điểm:", error)
+    // Use mock data as fallback
+    const key = `${classFilter.value}_${subjectFilter.value}_${termFilter.value}`
+    if (mockBangDiem[key]) {
+      reportCards.value = mockBangDiem[key].map(item => ({ ...item }))
+    } else {
+      reportCards.value = []
+    }
+    updateCache.value = {}
   } finally {
     loading.value = false
   }

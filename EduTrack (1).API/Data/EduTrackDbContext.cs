@@ -18,6 +18,16 @@ public sealed class EduTrackDbContext(DbContextOptions<EduTrackDbContext> option
     {
         base.OnModelCreating(modelBuilder);
 
+        // BẮT BUỘC: Map sang danh từ số ít để khớp với DB của bạn. KHÔNG ĐƯỢC XÓA!
+        modelBuilder.Entity<HocSinh>().ToTable("HocSinh");
+        modelBuilder.Entity<GiaoVien>().ToTable("GiaoVien");
+        modelBuilder.Entity<LopHoc>().ToTable("LopHoc");
+        modelBuilder.Entity<MonHoc>().ToTable("MonHoc");
+        modelBuilder.Entity<DiemSo>().ToTable("DiemSo");
+        modelBuilder.Entity<LichHoc>().ToTable("LichHoc");
+        modelBuilder.Entity<HocPhi>().ToTable("HocPhi");
+        modelBuilder.Entity<ThongBao>().ToTable("ThongBao");
+
         modelBuilder.Entity<HocSinh>()
             .HasOne(x => x.LopHoc)
             .WithMany(x => x.HocSinhs)

@@ -200,5 +200,5 @@ const formatCurrency = (value) => {
         </div>
       </div>
     </div>
-  </div>
+  
 </template>

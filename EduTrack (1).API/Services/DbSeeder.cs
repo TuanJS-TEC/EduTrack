@@ -24,16 +24,16 @@ public sealed class DbSeeder(EduTrackDbContext db)
 
         var lop = new[]
         {
-            new LopHoc { MaLop = "10A1", TenLop = "10A1", KhoiLop = "10", NamHoc = namHoc, MaGVChuNhiem = "GV001" },
-            new LopHoc { MaLop = "10A2", TenLop = "10A2", KhoiLop = "10", NamHoc = namHoc, MaGVChuNhiem = "GV002" },
+            new LopHoc { MaLop = "10A1", TenLop = "10A1", KhoiLop = 10, NamHoc = namHoc, MaGVChuNhiem = "GV001" },
+            new LopHoc { MaLop = "10A2", TenLop = "10A2", KhoiLop = 10, NamHoc = namHoc, MaGVChuNhiem = "GV002" },
         };
 
         var mon = new[]
         {
-            new MonHoc { MaMon = "TOAN", TenMon = "Toán", SoTiet = 70, HeSoThi = 1.0m, MaGV = "GV001" },
-            new MonHoc { MaMon = "VAN", TenMon = "Ngữ văn", SoTiet = 70, HeSoThi = 1.0m, MaGV = "GV002" },
-            new MonHoc { MaMon = "ANH", TenMon = "Tiếng Anh", SoTiet = 60, HeSoThi = 1.0m, MaGV = "GV003" },
-            new MonHoc { MaMon = "LY", TenMon = "Vật lý", SoTiet = 50, HeSoThi = 1.0m, MaGV = "GV004" },
+            new MonHoc { MaMon = "TOAN", TenMon = "Toán", SoTiet = 70, HeSoThi = 1, MaGV = "GV001" },
+            new MonHoc { MaMon = "VAN", TenMon = "Ngữ văn", SoTiet = 70, HeSoThi = 1, MaGV = "GV002" },
+            new MonHoc { MaMon = "ANH", TenMon = "Tiếng Anh", SoTiet = 60, HeSoThi = 1, MaGV = "GV003" },
+            new MonHoc { MaMon = "LY", TenMon = "Vật lý", SoTiet = 50, HeSoThi = 1, MaGV = "GV004" },
         };
 
         var hs = new List<HocSinh>();

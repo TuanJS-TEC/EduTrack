@@ -34,8 +34,12 @@ export const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  if (to.path === '/login') return true
-  const token = localStorage.getItem('accessToken')
-  if (!token) return '/login'
+  // TODO: Remove this skip for production
+  // Temporarily bypass authentication for frontend development
   return true
+  
+  // if (to.path === '/login') return true
+  // const token = localStorage.getItem('accessToken')
+  // if (!token) return '/login'
+  // return true
 })

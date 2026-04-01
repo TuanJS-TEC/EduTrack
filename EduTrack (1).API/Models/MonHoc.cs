@@ -15,8 +15,7 @@ public sealed class MonHoc
 
     public int? SoTiet { get; set; }
 
-    [Column(TypeName = "decimal(4,2)")]
-    public decimal? HeSoThi { get; set; }
+    public int? HeSoThi { get; set; }
 
     [MaxLength(20)]
     public string? MaGV { get; set; }
