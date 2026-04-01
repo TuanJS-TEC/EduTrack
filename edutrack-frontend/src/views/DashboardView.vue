@@ -1,5 +1,5 @@
 <script setup>
-import { Users, BookOpen, UserSquare, DollarSign, ArrowUpRight } from 'lucide-vue-next'
+import { Users, BookOpen, UserSquare, DollarSign, ArrowUpRight, Calendar } from 'lucide-vue-next'
 
 const stats = [
   {

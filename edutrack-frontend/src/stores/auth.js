@@ -16,10 +16,10 @@ export const useAuthStore = defineStore('auth', {
       try {
         const { data } = await api.post('/api/auth/login', { username, password })
         
-        this.accessToken = data.accessToken
-        this.refreshToken = data.refreshToken
-        this.username = data.username
-        this.role = data.role
+        this.accessToken = data.AccessToken || data.accessToken
+        this.refreshToken = data.RefreshToken || data.refreshToken
+        this.username = data.Username || data.username
+        this.role = data.Role || data.role
         
         localStorage.setItem('accessToken', this.accessToken)
         localStorage.setItem('refreshToken', this.refreshToken)

@@ -10,6 +10,21 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token hết hạn hoặc không hợp lệ → xóa và về login
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('username')
+      localStorage.removeItem('role')
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
 export const apiService = {
   // HocSinh
   getHocSinhs: (maLop) => api.get('/api/hocsinh', { params: { maLop } }),
@@ -31,6 +46,10 @@ export const apiService = {
   // LopHoc
   getLopHocs: () => api.get('/api/lophoc'),
   getLopHocById: (id) => api.get(`/api/lophoc/${id}`),
+
+  // LichHoc
+  getLichHocByLop: (maLop) => api.get('/api/lichhoc', { params: { maLop } }),
+  getLichHocByGV: (maGV) => api.get('/api/lichhoc', { params: { maGV } }),
   
   // DiemSo
   getDiemSos: (hocKy, maLop, maMon) => api.get('/api/diemso', { params: { hocKy, maLop, maMon } }),

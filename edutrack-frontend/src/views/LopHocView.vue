@@ -33,9 +33,11 @@ onMounted(() => {
 
 const filteredClasses = computed(() => {
   return classesList.value.filter(c => {
-    return ((c.MaLop || '').toLowerCase().includes(search.value.toLowerCase()) || 
-           (c.TenLop || '').toLowerCase().includes(search.value.toLowerCase()) ||
-           (c.MaGVChuNhiem || '').toLowerCase().includes(search.value.toLowerCase())) &&
+    const searchLower = search.value.toLowerCase()
+    return ((c.MaLop || '').toLowerCase().includes(searchLower) || 
+           (c.TenLop || '').toLowerCase().includes(searchLower) ||
+           (c.MaGVChuNhiem || '').toLowerCase().includes(searchLower) ||
+           (c.TenGVChuNhiem || '').toLowerCase().includes(searchLower)) &&
            (gradeFilter.value === 'All' || String(c.KhoiLop) === gradeFilter.value)
   })
 })
@@ -97,7 +99,6 @@ const filteredClasses = computed(() => {
             <select v-model="gradeFilter" class="appearance-none bg-white dark:bg-[#0B1437] border border-gray-200 dark:border-white/10 shadow-sm text-gray-600 dark:text-gray-200 py-2 pl-4 pr-10 rounded-lg text-sm font-bold focus:outline-none focus:border-blue-500 relative cursor-pointer outline-none">
               <Filter :size="14" class="inline mr-2" />
               <option value="All">All Grades</option>
-              <option value="9">Khối 9</option>
               <option value="10">Khối 10</option>
               <option value="11">Khối 11</option>
               <option value="12">Khối 12</option>
@@ -118,7 +119,7 @@ const filteredClasses = computed(() => {
             <tr class="text-[11px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-white/5">
               <th class="py-4 px-6">MÃ LỚP / TÊN LỚP</th>
               <th class="py-4 px-3 text-center">NĂM HỌC</th>
-              <th class="py-4 px-3">GV CHỦ NHIỆM (MÃ GV)</th>
+              <th class="py-4 px-3">GV CHỦ NHIỆM</th>
               <th class="py-4 pr-6 pl-3 text-right">ACTIONS</th>
             </tr>
           </thead>
@@ -141,10 +142,13 @@ const filteredClasses = computed(() => {
               </td>
               <td class="py-4 px-3">
                 <div class="flex items-center gap-2">
-                  <div class="w-6 h-6 rounded-full bg-[#2B3674] dark:bg-gray-700 text-white flex items-center justify-center text-[10px] font-bold">
-                    GV
+                  <div class="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                    {{ (cls.TenGVChuNhiem || cls.MaGVChuNhiem || '?').charAt(0) }}
                   </div>
-                  <span class="font-bold text-[#2B3674] dark:text-gray-200">{{ cls.MaGVChuNhiem || 'Chưa phân công' }}</span>
+                  <div>
+                    <p class="font-bold text-[#2B3674] dark:text-gray-200 text-sm">{{ cls.TenGVChuNhiem || 'Chưa phân công' }}</p>
+                    <p class="text-[11px] font-mono text-gray-400 dark:text-gray-500">{{ cls.MaGVChuNhiem || '' }}</p>
+                  </div>
                 </div>
               </td>
               <td class="py-4 pr-6 pl-3 text-right">

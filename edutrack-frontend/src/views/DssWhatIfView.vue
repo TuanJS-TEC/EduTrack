@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Calculator, Target, ArrowRight, UserSquare, BookOpen, AlertTriangle, CheckCircle, TrendingUp, Hash, Info, RefreshCw } from 'lucide-vue-next'
 import { apiService } from '../services/api'
 
