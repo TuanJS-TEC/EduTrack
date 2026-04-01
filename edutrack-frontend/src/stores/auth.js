@@ -13,15 +13,21 @@ export const useAuthStore = defineStore('auth', {
   },
   actions: {
     async login(username, password) {
-      const { data } = await api.post('/api/auth/login', { username, password })
-      this.accessToken = data.accessToken
-      this.refreshToken = data.refreshToken
-      this.username = data.username
-      this.role = data.role
-      localStorage.setItem('accessToken', this.accessToken)
-      localStorage.setItem('refreshToken', this.refreshToken)
-      localStorage.setItem('username', this.username)
-      localStorage.setItem('role', this.role)
+      try {
+        const { data } = await api.post('/api/auth/login', { username, password })
+        
+        this.accessToken = data.AccessToken || data.accessToken
+        this.refreshToken = data.RefreshToken || data.refreshToken
+        this.username = data.Username || data.username
+        this.role = data.Role || data.role
+        
+        localStorage.setItem('accessToken', this.accessToken)
+        localStorage.setItem('refreshToken', this.refreshToken)
+        localStorage.setItem('username', this.username)
+        localStorage.setItem('role', this.role)
+      } catch (error) {
+        throw error
+      }
     },
     logout() {
       this.accessToken = ''

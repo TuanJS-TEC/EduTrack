@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://localhost:5001',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5245',
 })
 
 api.interceptors.request.use((config) => {
@@ -59,7 +59,8 @@ export const apiService = {
 
   // ThongBao
   getThongBaos: () => api.get('/api/thongbao'),
-  markAsRead: (id) => api.put(`/api/thongbao/${id}`),
+  markAsRead: (id) => api.put(`/api/thongbao/${id}/mark-as-read`),
+  deleteThongBao: (id) => api.delete(`/api/thongbao/${id}`),
 
   // DSs (Decision Support System)
   getDssCanhBao: (hocKy, maLop, targetTb) => api.get('/api/dss/canh-bao-roi-mon', { params: { hocKy, maLop, targetTb } }),
