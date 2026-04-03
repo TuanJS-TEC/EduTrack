@@ -6,9 +6,9 @@ import { apiService } from '../services/api'
 const search = ref('')
 const gradeFilter = ref('All')
 
-// Mock Summary Data for now
+
 const summaryCards = [
-  { id: 1, title: 'Tổng số lớp học', value: '42', subtitle: 'Toàn trường', icon: Users, color: 'text-blue-500 bg-blue-50 dark:text-blue-400 dark:bg-blue-500/10' },
+  { id: 1, title: 'Tổng số lớp học', value: '2', subtitle: 'Toàn trường', icon: Users, color: 'text-blue-500 bg-blue-50 dark:text-blue-400 dark:bg-blue-500/10' },
   { id: 2, title: 'Năm học hiện tại', value: '2025-2026', subtitle: 'Học kỳ 1', icon: Calendar, color: 'text-purple-500 bg-purple-50 dark:text-purple-400 dark:bg-purple-500/10' },
 ]
 

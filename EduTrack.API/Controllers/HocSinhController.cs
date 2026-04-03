@@ -1,4 +1,5 @@
 using EduTrack.API.Data;
+using EduTrack.API.DTOs;
 using EduTrack.API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,21 +12,69 @@ namespace EduTrack.API.Controllers;
 [Authorize]
 public sealed class HocSinhController(EduTrackDbContext db) : ControllerBase
 {
-    [HttpGet]
-    public async Task<ActionResult<List<HocSinh>>> GetAll([FromQuery] string? maLop)
+    // Helper: tính DiemTB trung bình tất cả môn (trung bình các DiemTBMon có giá trị)
+    private static decimal? TinhDiemTB(IEnumerable<DiemSo> diemSos)
     {
-        var query = db.HocSinhs.AsNoTracking().AsQueryable();
+        var vals = diemSos
+            .Where(d => d.DiemTBMon.HasValue)
+            .Select(d => d.DiemTBMon!.Value)
+            .ToList();
+        if (!vals.Any()) return null;
+        return Math.Round(vals.Average(), 1, MidpointRounding.AwayFromZero);
+    }
+
+    // Helper: xếp hạnh kiểm theo điểm TB
+    private static string? XepHanhKiem(decimal? tb)
+    {
+        if (tb is null) return null;
+        if (tb >= 8.0m) return "Tốt";
+        if (tb >= 6.5m) return "Khá";
+        if (tb >= 5.0m) return "Trung bình";
+        return "Yếu";
+    }
+
+    // Map entity → DTO
+    private static HocSinhResponse ToDto(HocSinh hs)
+    {
+        var diemTB = TinhDiemTB(hs.DiemSos);
+        return new HocSinhResponse
+        {
+            MaHS           = hs.MaHS,
+            HoTen          = hs.HoTen,
+            NgaySinh       = hs.NgaySinh,
+            DiaChi         = hs.DiaChi,
+            MaLop          = hs.MaLop,
+            Email_PhuHuynh = hs.Email_PhuHuynh,
+            SDT_PhuHuynh   = hs.SDT_PhuHuynh,
+            TrangThai      = hs.TrangThai,
+            DiemTB         = diemTB,
+            HanhKiem       = XepHanhKiem(diemTB),
+        };
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<List<HocSinhResponse>>> GetAll([FromQuery] string? maLop)
+    {
+        var query = db.HocSinhs
+            .AsNoTracking()
+            .Include(h => h.DiemSos)
+            .AsQueryable();
+
         if (!string.IsNullOrWhiteSpace(maLop))
             query = query.Where(x => x.MaLop == maLop);
 
-        return Ok(await query.OrderBy(x => x.HoTen).ToListAsync());
+        var list = await query.OrderBy(x => x.HoTen).ToListAsync();
+        return Ok(list.Select(ToDto));
     }
 
     [HttpGet("{maHS}")]
-    public async Task<ActionResult<HocSinh>> GetById([FromRoute] string maHS)
+    public async Task<ActionResult<HocSinhResponse>> GetById([FromRoute] string maHS)
     {
-        var hs = await db.HocSinhs.AsNoTracking().FirstOrDefaultAsync(x => x.MaHS == maHS);
-        return hs is null ? NotFound() : Ok(hs);
+        var hs = await db.HocSinhs
+            .AsNoTracking()
+            .Include(h => h.DiemSos)
+            .FirstOrDefaultAsync(x => x.MaHS == maHS);
+        return hs is null ? NotFound() : Ok(ToDto(hs));
     }
 
     [HttpPost]
@@ -37,7 +86,7 @@ public sealed class HocSinhController(EduTrackDbContext db) : ControllerBase
 
         db.HocSinhs.Add(hs);
         await db.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetById), new { maHS = hs.MaHS }, hs);
+        return CreatedAtAction(nameof(GetById), new { maHS = hs.MaHS }, ToDto(hs));
     }
 
     [HttpPut("{maHS}")]
@@ -47,12 +96,13 @@ public sealed class HocSinhController(EduTrackDbContext db) : ControllerBase
         var hs = await db.HocSinhs.FirstOrDefaultAsync(x => x.MaHS == maHS);
         if (hs is null) return NotFound();
 
-        hs.HoTen = input.HoTen;
-        hs.NgaySinh = input.NgaySinh;
-        hs.DiaChi = input.DiaChi;
-        hs.MaLop = input.MaLop;
+        hs.HoTen          = input.HoTen;
+        hs.NgaySinh       = input.NgaySinh;
+        hs.DiaChi         = input.DiaChi;
+        hs.MaLop          = input.MaLop;
         hs.Email_PhuHuynh = input.Email_PhuHuynh;
-        hs.SDT_PhuHuynh = input.SDT_PhuHuynh;
+        hs.SDT_PhuHuynh   = input.SDT_PhuHuynh;
+        hs.TrangThai      = input.TrangThai ?? "Đang học";
 
         await db.SaveChangesAsync();
         return NoContent();
@@ -70,4 +120,5 @@ public sealed class HocSinhController(EduTrackDbContext db) : ControllerBase
         return NoContent();
     }
 }
+
 

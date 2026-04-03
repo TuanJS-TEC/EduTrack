@@ -27,6 +27,9 @@ public sealed class HocSinh
     [MaxLength(20)]
     public string? SDT_PhuHuynh { get; set; }
 
+    [MaxLength(20)]
+    public string TrangThai { get; set; } = "Đang học";
+
     public LopHoc? LopHoc { get; set; }
     public ICollection<DiemSo> DiemSos { get; set; } = new List<DiemSo>();
     public ICollection<HocPhi> HocPhis { get; set; } = new List<HocPhi>();

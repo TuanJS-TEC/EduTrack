@@ -15,12 +15,12 @@ const statusFilter = ref('All')
 const tuitionRecords = ref([])
 const students = ref([])
 const formData = ref({
-  maHocPhi: 0,
-  maHS: '',
-  hocKy: 1,
-  soTien: 0,
-  ngayDong: null,
-  trangThai: 'Chưa đóng',
+  MaHocPhi: 0,
+  MaHS: '',
+  HocKy: 1,
+  SoTien: 0,
+  NgayDong: null,
+  TrangThai: 'Chưa đóng',
 })
 
 // Metrics
@@ -37,16 +37,16 @@ const metrics = computed(() => {
 
   const today = new Date()
   const collected = tuitionRecords.value
-    .filter(r => r.trangThai === 'Đã đóng')
-    .reduce((sum, r) => sum + (r.soTien || 0), 0)
+    .filter(r => r.TrangThai === 'Đã đóng')
+    .reduce((sum, r) => sum + (Number(r.SoTien) || 0), 0)
 
   const pending = tuitionRecords.value
-    .filter(r => r.trangThai === 'Chưa đóng')
-    .reduce((sum, r) => sum + (r.soTien || 0), 0)
+    .filter(r => r.TrangThai === 'Chưa đóng')
+    .reduce((sum, r) => sum + (Number(r.SoTien) || 0), 0)
 
   const overdue = tuitionRecords.value
-    .filter(r => r.trangThai === 'Chưa đóng' && r.ngayDong && new Date(r.ngayDong) < today)
-    .reduce((sum, r) => sum + (r.soTien || 0), 0)
+    .filter(r => r.TrangThai === 'Chưa đóng' && r.NgayDong && new Date(r.NgayDong) < today)
+    .reduce((sum, r) => sum + (Number(r.SoTien) || 0), 0)
 
   const totalExpected = collected + pending
   const collectionRate = totalExpected > 0 ? (collected / totalExpected * 100).toFixed(0) : 0
@@ -58,7 +58,7 @@ const metrics = computed(() => {
     overdue: overdue.toLocaleString('vi-VN'),
     collectionRate: collectionRate,
     overdueCount: tuitionRecords.value.filter(
-      r => r.trangThai === 'Chưa đóng' && r.ngayDong && new Date(r.ngayDong) < today
+      r => r.TrangThai === 'Chưa đóng' && r.NgayDong && new Date(r.NgayDong) < today
     ).length,
   }
 })
@@ -66,12 +66,12 @@ const metrics = computed(() => {
 // Filtered data
 const filteredRecords = computed(() => {
   return tuitionRecords.value.filter(record => {
-    const studentName = students.value.find(s => s.maHS === record.maHS)?.hoTen || ''
+    const studentName = students.value.find(s => s.MaHS === record.MaHS)?.HoTen || ''
     return (
-      (record.maHS.toLowerCase().includes(search.value.toLowerCase()) ||
+      ((record.MaHS || '').toLowerCase().includes(search.value.toLowerCase()) ||
         studentName.toLowerCase().includes(search.value.toLowerCase())) &&
-      (semesterFilter.value === 'All' || record.hocKy === parseInt(semesterFilter.value)) &&
-      (statusFilter.value === 'All' || record.trangThai === statusFilter.value)
+      (semesterFilter.value === 'All' || record.HocKy === parseInt(semesterFilter.value)) &&
+      (statusFilter.value === 'All' || record.TrangThai === statusFilter.value)
     )
   })
 })
@@ -80,14 +80,14 @@ const filteredRecords = computed(() => {
 const recordsWithStudentInfo = computed(() => {
   const today = new Date()
   return filteredRecords.value.map(record => {
-    const student = students.value.find(s => s.maHS === record.maHS)
-    const isOverdue = record.trangThai === 'Chưa đóng' && record.ngayDong && new Date(record.ngayDong) < today
+    const student = students.value.find(s => s.MaHS === record.MaHS)
+    const isOverdue = record.TrangThai === 'Chưa đóng' && record.NgayDong && new Date(record.NgayDong) < today
     return {
       ...record,
-      studentName: student?.hoTen || 'N/A',
-      studentClass: student?.maLop || 'N/A',
+      studentName: student?.HoTen || 'N/A',
+      studentClass: student?.MaLop || 'N/A',
       isOverdue,
-      daysOverdue: isOverdue ? Math.floor((today - new Date(record.ngayDong)) / (1000 * 60 * 60 * 24)) : 0,
+      daysOverdue: isOverdue ? Math.floor((today - new Date(record.NgayDong)) / (1000 * 60 * 60 * 24)) : 0,
     }
   })
 })
@@ -128,12 +128,12 @@ const loadStudents = async () => {
 const openDialog = () => {
   isEditMode.value = false
   formData.value = {
-    maHocPhi: 0,
-    maHS: '',
-    hocKy: 1,
-    soTien: 0,
-    ngayDong: null,
-    trangThai: 'Chưa đóng',
+    MaHocPhi: 0,
+    MaHS: '',
+    HocKy: 1,
+    SoTien: 0,
+    NgayDong: null,
+    TrangThai: 'Chưa đóng',
   }
   dialogVisible.value = true
 }
@@ -141,56 +141,56 @@ const openDialog = () => {
 const editRecord = (record) => {
   isEditMode.value = true
   formData.value = {
-    maHocPhi: record.maHocPhi,
-    maHS: record.maHS,
-    hocKy: record.hocKy,
-    soTien: record.soTien,
-    ngayDong: record.ngayDong ? new Date(record.ngayDong).toISOString().split('T')[0] : null,
-    trangThai: record.trangThai,
+    MaHocPhi: record.MaHocPhi,
+    MaHS: record.MaHS,
+    HocKy: record.HocKy,
+    SoTien: record.SoTien,
+    NgayDong: record.NgayDong ? new Date(record.NgayDong).toISOString().split('T')[0] : null,
+    TrangThai: record.TrangThai,
   }
   dialogVisible.value = true
 }
 
 const saveRecord = async () => {
-  if (!formData.value.maHS || !formData.value.soTien) {
-    ElMessage.warning('Please fill in all required fields')
+  if (!formData.value.MaHS || !formData.value.SoTien) {
+    ElMessage.warning('Vui lòng điền đầy đủ thông tin bắt buộc')
     return
   }
 
   try {
     const payload = {
       ...formData.value,
-      ngayDong: formData.value.ngayDong ? new Date(formData.value.ngayDong).toISOString() : null,
+      NgayDong: formData.value.NgayDong ? new Date(formData.value.NgayDong).toISOString() : null,
     }
 
     if (isEditMode.value) {
-      await api.put(`/api/hocphi/${formData.value.maHocPhi}`, payload)
-      ElMessage.success('Tuition record updated successfully')
+      await api.put(`/api/hocphi/${formData.value.MaHocPhi}`, payload)
+      ElMessage.success('Cập nhật học phí thành công')
     } else {
       await api.post('/api/hocphi', payload)
-      ElMessage.success('Tuition record created successfully')
+      ElMessage.success('Tạo bản ghi học phí thành công')
     }
     dialogVisible.value = false
     await loadTuitionRecords()
   } catch (error) {
-    ElMessage.error(isEditMode.value ? 'Failed to update record' : 'Failed to create record')
+    ElMessage.error(isEditMode.value ? 'Cập nhật thất bại' : 'Tạo mới thất bại')
     console.error(error)
   }
 }
 
-const deleteRecord = async (maHocPhi) => {
+const deleteRecord = async (MaHocPhi) => {
   try {
-    await ElMessageBox.confirm('Are you sure you want to delete this record?', 'Warning', {
-      confirmButtonText: 'OK',
-      cancelButtonText: 'Cancel',
+    await ElMessageBox.confirm('Bạn có chắc muốn xóa bản ghi này?', 'Xác nhận', {
+      confirmButtonText: 'Xóa',
+      cancelButtonText: 'Hủy',
       type: 'warning',
     })
-    await api.delete(`/api/hocphi/${maHocPhi}`)
-    ElMessage.success('Record deleted successfully')
+    await api.delete(`/api/hocphi/${MaHocPhi}`)
+    ElMessage.success('Xóa bản ghi học phí thành công')
     await loadTuitionRecords()
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('Failed to delete record')
+      ElMessage.error('Xóa thất bại')
     }
   }
 }
@@ -198,28 +198,28 @@ const deleteRecord = async (maHocPhi) => {
 const sendReminders = async () => {
   try {
     const overdueRecords = tuitionRecords.value.filter(
-      r => r.trangThai === 'Chưa đóng' && r.ngayDong && new Date(r.ngayDong) < new Date()
+      r => r.TrangThai === 'Chưa đóng' && r.NgayDong && new Date(r.NgayDong) < new Date()
     )
     if (overdueRecords.length === 0) {
-      ElMessage.info('No overdue records to send reminders for')
+      ElMessage.info('Không có học phí quá hạn để nhắc nhở')
       return
     }
-    ElMessage.success(`Reminders sent to ${overdueRecords.length} students`)
+    ElMessage.success(`Đã gửi nhắc nhở đến ${overdueRecords.length} học sinh`)
   } catch (error) {
-    ElMessage.error('Failed to send reminders')
+    ElMessage.error('Gửi nhắc nhở thất bại')
   }
 }
 
 const exportData = () => {
   try {
-    const headers = ['Student ID', 'Student Name', 'Semester', 'Amount', 'Due Date', 'Status']
+    const headers = ['Mã HS', 'Tên Học Sinh', 'Học Kỳ', 'Số Tiền', 'Ngày Đóng', 'Trạng Thái']
     const rows = recordsWithStudentInfo.value.map(r => [
-      r.maHS,
+      r.MaHS,
       r.studentName,
-      r.hocKy,
-      r.soTien,
-      r.ngayDong || 'N/A',
-      r.trangThai,
+      r.HocKy,
+      r.SoTien,
+      r.NgayDong || 'N/A',
+      r.TrangThai,
     ])
 
     const csv = [headers, ...rows].map(row => row.join(',')).join('\n')
@@ -442,11 +442,11 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody class="text-sm" v-if="!loading">
-            <tr v-for="record in recordsWithStudentInfo" :key="record.maHocPhi" class="border-b border-gray-50 dark:border-white/5 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-colors group">
+            <tr v-for="record in recordsWithStudentInfo" :key="record.MaHocPhi" class="border-b border-gray-50 dark:border-white/5 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-colors group">
               <td class="py-4 pl-6 pr-3">
                 <div class="flex items-center gap-3">
                   <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                    {{ record.studentName.charAt(0) }}
+                    {{ (record.studentName || 'N').charAt(0) }}
                   </div>
                   <div>
                     <p class="font-bold text-[#2B3674] dark:text-gray-100">{{ record.studentName }}</p>
@@ -454,30 +454,30 @@ onMounted(() => {
                   </div>
                 </div>
               </td>
-              <td class="py-4 px-3 text-center text-xs font-mono text-gray-500 dark:text-gray-400">TU{{ record.maHocPhi }}</td>
-              <td class="py-4 px-3 text-center font-bold text-[#2B3674] dark:text-gray-200">Sem {{ record.hocKy }}</td>
-              <td class="py-4 px-3 text-center font-bold text-[#2B3674] dark:text-gray-200">{{ (record.soTien || 0).toLocaleString() }}đ</td>
+              <td class="py-4 px-3 text-center text-xs font-mono text-gray-500 dark:text-gray-400">TU{{ record.MaHocPhi }}</td>
+              <td class="py-4 px-3 text-center font-bold text-[#2B3674] dark:text-gray-200">Sem {{ record.HocKy }}</td>
+              <td class="py-4 px-3 text-center font-bold text-[#2B3674] dark:text-gray-200">{{ (Number(record.SoTien) || 0).toLocaleString('vi-VN') }}đ</td>
               <td class="py-4 px-3 text-center">
                 <div class="flex items-center justify-center gap-2">
                   <div class="w-20 bg-gray-200 dark:bg-white/10 rounded-full h-1.5 overflow-hidden">
-                    <div class="bg-green-500 h-full" :style="{ width: record.trangThai === 'Đã đóng' ? '100%' : '0%' }"></div>
+                    <div class="bg-green-500 h-full" :style="{ width: record.TrangThai === 'Đã đóng' ? '100%' : '0%' }"></div>
                   </div>
-                  <span class="text-xs font-bold text-gray-600 dark:text-gray-400">{{ record.trangThai === 'Đã đóng' ? '100%' : '0%' }}</span>
+                  <span class="text-xs font-bold text-gray-600 dark:text-gray-400">{{ record.TrangThai === 'Đã đóng' ? '100%' : '0%' }}</span>
                 </div>
               </td>
               <td class="py-4 px-3 text-center text-gray-600 dark:text-gray-400">
                 <div>
-                  <p class="text-sm">{{ record.ngayDong ? new Date(record.ngayDong).toLocaleDateString('vi-VN') : 'N/A' }}</p>
-                  <span v-if="record.isOverdue" class="text-xs text-red-500 font-bold">{{ record.daysOverdue }} days overdue</span>
+                  <p class="text-sm">{{ record.NgayDong ? new Date(record.NgayDong).toLocaleDateString('vi-VN') : 'N/A' }}</p>
+                  <span v-if="record.isOverdue" class="text-xs text-red-500 font-bold">{{ record.daysOverdue }} ngày quá hạn</span>
                 </div>
               </td>
-              <td class="py-4 px-3 text-center text-gray-600 dark:text-gray-400 text-xs">Bank Transfer</td>
+              <td class="py-4 px-3 text-center text-gray-600 dark:text-gray-400 text-xs">Chuyển khoản</td>
               <td class="py-4 px-3 text-center">
                 <span
                   class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold"
-                  :class="getStatusBadge(record.trangThai).bg + ' ' + getStatusBadge(record.trangThai).text"
+                  :class="getStatusBadge(record.TrangThai).bg + ' ' + getStatusBadge(record.TrangThai).text"
                 >
-                  {{ record.trangThai }}
+                  {{ record.TrangThai }}
                 </span>
               </td>
               <td class="py-4 pr-6 pl-3">
@@ -485,21 +485,21 @@ onMounted(() => {
                   <button
                     @click="editRecord(record)"
                     class="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-md transition-colors"
-                    title="Edit"
+                    title="Chỉnh sửa"
                   >
                     <Edit2 :size="16" />
                   </button>
                   <button
                     @click="() => {}"
                     class="p-1.5 text-gray-400 dark:text-gray-500 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-md transition-colors"
-                    title="View Details"
+                    title="Xem chi tiết"
                   >
                     <Eye :size="16" />
                   </button>
                   <button
-                    @click="deleteRecord(record.maHocPhi)"
+                    @click="deleteRecord(record.MaHocPhi)"
                     class="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors"
-                    title="Delete"
+                    title="Xóa"
                   >
                     <Trash2 :size="16" />
                   </button>
@@ -518,45 +518,45 @@ onMounted(() => {
     </div>
 
     <!-- ADD/EDIT DIALOG -->
-    <el-dialog v-model="dialogVisible" :title="isEditMode ? 'Edit Tuition Record' : 'Add New Tuition Record'" width="500px">
+    <el-dialog v-model="dialogVisible" :title="isEditMode ? 'Chỉnh sửa Học Phí' : 'Thêm Bản Ghi Học Phí'" width="500px">
       <div class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student</label>
-          <select v-model="formData.maHS" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-[#111C44] dark:text-white">
-            <option value="">Select Student</option>
-            <option v-for="student in students" :key="student.maHS" :value="student.maHS">
-              {{ student.hoTen }} ({{ student.maHS }})
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Học Sinh</label>
+          <select v-model="formData.MaHS" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-[#111C44] dark:text-white">
+            <option value="">-- Chọn Học Sinh --</option>
+            <option v-for="student in students" :key="student.MaHS" :value="student.MaHS">
+              {{ student.HoTen }} ({{ student.MaHS }})
             </option>
           </select>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Semester</label>
-            <select v-model.number="formData.hocKy" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-[#111C44] dark:text-white">
-              <option value="1">Semester 1</option>
-              <option value="2">Semester 2</option>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Học Kỳ</label>
+            <select v-model.number="formData.HocKy" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-[#111C44] dark:text-white">
+              <option value="1">Học Kỳ 1</option>
+              <option value="2">Học Kỳ 2</option>
             </select>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount (đ)</label>
-            <input v-model.number="formData.soTien" type="number" placeholder="0" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-[#111C44] dark:text-white" />
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Số Tiền (đ)</label>
+            <input v-model.number="formData.SoTien" type="number" placeholder="0" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-[#111C44] dark:text-white" />
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>
-            <input v-model="formData.ngayDong" type="date" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-[#111C44] dark:text-white" />
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ngày Đóng</label>
+            <input v-model="formData.NgayDong" type="date" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-[#111C44] dark:text-white" />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-            <select v-model="formData.trangThai" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-[#111C44] dark:text-white">
-              <option value="Chưa đóng">Pending</option>
-              <option value="Đã đóng">Paid</option>
-              <option value="Nợ">Overdue</option>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Trạng Thái</label>
+            <select v-model="formData.TrangThai" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-[#111C44] dark:text-white">
+              <option value="Chưa đóng">Chưa đóng</option>
+              <option value="Đã đóng">Đã đóng</option>
+              <option value="Nợ">Nợ</option>
             </select>
           </div>
         </div>

@@ -103,14 +103,18 @@ public sealed class DbSeeder(EduTrackDbContext db)
 
         db.DiemSos.AddRange(diem);
 
-        // Học phí + thông báo mẫu
-        var hocPhi = hs.Take(10).Select((s, idx) => new HocPhi
+        // Học phí HK1: seed cho tất cả 30 học sinh với trạng thái đa dạng
+        var hocPhi = hs.Select((s, idx) => new HocPhi
         {
             MaHS = s.MaHS,
             HocKy = 1,
-            SoTien = 2500000,
-            NgayDong = DateTime.Today.AddDays(-idx),
-            TrangThai = "DaDong"
+            SoTien = idx % 3 == 0 ? 3000000m : 2500000m, // một số HS đóng mức khác nhau
+            NgayDong = idx < 18
+                ? DateTime.Today.AddDays(-(idx + 1))   // 18 HS đã có ngày đóng
+                : DateTime.Today.AddDays(15 - idx),     // 12 HS ngày đóng trong tương lai/quá hạn
+            TrangThai = idx < 12 ? "Đã đóng"           // 12 HS đã đóng
+                      : idx < 22 ? "Chưa đóng"          // 10 HS chưa đóng
+                      : "Nợ"                             // 8 HS nợ
         }).ToList();
 
         var thongBao = new List<ThongBao>
