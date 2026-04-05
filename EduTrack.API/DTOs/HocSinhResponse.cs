@@ -7,6 +7,13 @@ public sealed class HocSinhResponse
     public DateTime? NgaySinh { get; set; }
     public string? DiaChi { get; set; }
     public string MaLop { get; set; } = "";
+
+    /// <summary>Có giá trị khi truy vấn Include LopHoc.</summary>
+    public string? TenLop { get; set; }
+
+    public string? KhoiLop { get; set; }
+    public string? NamHocLop { get; set; }
+
     public string? Email_PhuHuynh { get; set; }
     public string? SDT_PhuHuynh { get; set; }
     public string TrangThai { get; set; } = "Đang học";

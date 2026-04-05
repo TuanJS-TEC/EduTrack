@@ -1,5 +1,3 @@
-using EduTrack.API.Models;
-
 namespace EduTrack.API.DTOs;
 
 public sealed class HocSinhFullProfileResponse
@@ -10,7 +8,7 @@ public sealed class HocSinhFullProfileResponse
     public string? NamHocLop { get; set; }
 
     public List<DiemKyTomTatDto> DiemTheoKy { get; set; } = [];
-    public List<HocPhi> HocPhis { get; set; } = [];
+    public List<HocPhiResponseDto> HocPhis { get; set; } = [];
     public List<ThongBaoTomTatDto> ThongBaos { get; set; } = [];
 }
 
@@ -24,8 +22,9 @@ public sealed class DiemKyTomTatDto
 
 public sealed class ThongBaoTomTatDto
 {
-    public int? MaTB { get; set; }
+    public int MaTB { get; set; }
     public string TieuDe { get; set; } = "";
     public string? LoaiTB { get; set; }
     public DateTime NgayGui { get; set; }
+    public string? NoiDung { get; set; }
 }

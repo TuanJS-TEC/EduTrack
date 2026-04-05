@@ -1,5 +1,6 @@
 using System.Text;
 using EduTrack.API.Authorization;
+using QuestPDF.Infrastructure;
 using EduTrack.API.Data;
 using EduTrack.API.Helpers;
 using EduTrack.API.Models;
@@ -10,6 +11,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>

@@ -1,3 +1,5 @@
+using EduTrack.API.DTOs;
+
 namespace EduTrack.API.Services;
 
 public static class ScoreInputValidator
@@ -20,4 +22,12 @@ public static class ScoreInputValidator
 
         return null;
     }
+
+    public static string? ValidateRequest(DiemSoUpsertRequest req) =>
+        Validate(req.DiemGiuaKy)
+        ?? Validate(req.DiemCuoiKy)
+        ?? ValidateMany(req.DiemMiengs)
+        ?? ValidateMany(req.Diem15ps)
+        ?? Validate(req.DiemMieng)
+        ?? Validate(req.Diem15p);
 }

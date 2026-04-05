@@ -43,6 +43,9 @@ public sealed class HocSinhController(
             NgaySinh = hs.NgaySinh,
             DiaChi = hs.DiaChi,
             MaLop = hs.MaLop,
+            TenLop = hs.LopHoc?.TenLop,
+            KhoiLop = hs.LopHoc?.KhoiLop,
+            NamHocLop = hs.LopHoc?.NamHoc,
             Email_PhuHuynh = hs.Email_PhuHuynh,
             SDT_PhuHuynh = hs.SDT_PhuHuynh,
             TrangThai = hs.TrangThai,
@@ -50,14 +53,46 @@ public sealed class HocSinhController(
             HanhKiem = XepHanhKiem(TinhDiemTbChung(hs.DiemSos)),
         };
 
+    private static HocPhiResponseDto ToHocPhiDto(HocPhi h) =>
+        new()
+        {
+            MaHocPhi = h.MaHocPhi,
+            MaHS = h.MaHS,
+            HocKy = h.HocKy,
+            SoTien = h.SoTien,
+            NgayDong = h.NgayDong,
+            TrangThai = h.TrangThai,
+        };
+
+    private static DateTime? TryParseExcelDate(IXLCell cell)
+    {
+        if (cell.IsEmpty()) return null;
+        if (cell.DataType == XLDataType.DateTime)
+        {
+            try
+            {
+                return cell.GetDateTime();
+            }
+            catch
+            {
+                // fall through
+            }
+        }
+
+        var str = cell.GetString().Trim();
+        return string.IsNullOrEmpty(str) ? null : DateTime.TryParse(str, out var dt) ? dt : null;
+    }
+
     [HttpGet("paged")]
     [Authorize(Policy = AppPolicies.CanViewStudents)]
     public async Task<ActionResult<PagedResult<HocSinhResponse>>> GetPaged(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
         [FromQuery] string? maLop = null,
         [FromQuery] string? khoiLop = null,
         [FromQuery] string? namHoc = null,
+        [FromQuery] string? trangThai = null,
         [FromQuery] string? sort = "HoTen",
         [FromQuery] bool sortDesc = false,
         CancellationToken ct = default)
@@ -68,28 +103,48 @@ public sealed class HocSinhController(
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
-        var q = db.HocSinhs.AsNoTracking().Include(h => h.LopHoc).Include(h => h.DiemSos).ThenInclude(d => d.ThanhPhans).AsQueryable();
+        var queryable = db.HocSinhs.AsNoTracking().Include(h => h.LopHoc).Include(h => h.DiemSos).ThenInclude(d => d.ThanhPhans).AsQueryable();
 
         if (User.IsInRole(RolePermissionSeeder.Parent))
         {
             var codes = await access.GetParentStudentCodesAsync(userId, ct);
-            q = q.Where(h => codes.Contains(h.MaHS));
+            queryable = queryable.Where(h => codes.Contains(h.MaHS));
         }
 
-        if (!string.IsNullOrWhiteSpace(maLop)) q = q.Where(x => x.MaLop == maLop);
-        if (!string.IsNullOrWhiteSpace(khoiLop)) q = q.Where(x => x.LopHoc != null && x.LopHoc.KhoiLop == khoiLop);
-        if (!string.IsNullOrWhiteSpace(namHoc)) q = q.Where(x => x.LopHoc != null && x.LopHoc.NamHoc == namHoc);
-
-        var total = await q.CountAsync(ct);
-        q = (sort, sortDesc) switch
+        if (!string.IsNullOrWhiteSpace(search))
         {
-            ("MaHS", true) => q.OrderByDescending(x => x.MaHS),
-            ("MaHS", false) => q.OrderBy(x => x.MaHS),
-            ("HoTen", true) => q.OrderByDescending(x => x.HoTen),
-            _ => q.OrderBy(x => x.HoTen),
+            var s = search.Trim();
+            queryable = queryable.Where(x =>
+                x.HoTen.Contains(s) ||
+                x.MaHS.Contains(s) ||
+                (x.DiaChi != null && x.DiaChi.Contains(s)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(maLop)) queryable = queryable.Where(x => x.MaLop == maLop);
+        if (!string.IsNullOrWhiteSpace(khoiLop)) queryable = queryable.Where(x => x.LopHoc != null && x.LopHoc.KhoiLop == khoiLop);
+        if (!string.IsNullOrWhiteSpace(namHoc)) queryable = queryable.Where(x => x.LopHoc != null && x.LopHoc.NamHoc == namHoc);
+        if (!string.IsNullOrWhiteSpace(trangThai)) queryable = queryable.Where(x => x.TrangThai == trangThai);
+
+        var total = await queryable.CountAsync(ct);
+        queryable = (sort, sortDesc) switch
+        {
+            ("MaHS", true) => queryable.OrderByDescending(x => x.MaHS),
+            ("MaHS", false) => queryable.OrderBy(x => x.MaHS),
+            ("MaLop", true) => queryable.OrderByDescending(x => x.MaLop).ThenBy(x => x.HoTen),
+            ("MaLop", false) => queryable.OrderBy(x => x.MaLop).ThenBy(x => x.HoTen),
+            ("TrangThai", true) => queryable.OrderByDescending(x => x.TrangThai).ThenBy(x => x.HoTen),
+            ("TrangThai", false) => queryable.OrderBy(x => x.TrangThai).ThenBy(x => x.HoTen),
+            ("NgaySinh", true) => queryable.OrderByDescending(x => x.NgaySinh).ThenBy(x => x.HoTen),
+            ("NgaySinh", false) => queryable.OrderBy(x => x.NgaySinh).ThenBy(x => x.HoTen),
+            ("NamHoc", true) => queryable.OrderByDescending(x => x.LopHoc!.NamHoc).ThenBy(x => x.HoTen),
+            ("NamHoc", false) => queryable.OrderBy(x => x.LopHoc!.NamHoc).ThenBy(x => x.HoTen),
+            ("KhoiLop", true) => queryable.OrderByDescending(x => x.LopHoc!.KhoiLop).ThenBy(x => x.MaLop).ThenBy(x => x.HoTen),
+            ("KhoiLop", false) => queryable.OrderBy(x => x.LopHoc!.KhoiLop).ThenBy(x => x.MaLop).ThenBy(x => x.HoTen),
+            ("HoTen", true) => queryable.OrderByDescending(x => x.HoTen),
+            _ => queryable.OrderBy(x => x.HoTen),
         };
 
-        var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var items = await queryable.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         return Ok(new PagedResult<HocSinhResponse>
         {
             Page = page,
@@ -108,6 +163,7 @@ public sealed class HocSinhController(
 
         var query = db.HocSinhs
             .AsNoTracking()
+            .Include(h => h.LopHoc)
             .Include(h => h.DiemSos).ThenInclude(d => d.ThanhPhans)
             .AsQueryable();
 
@@ -134,6 +190,7 @@ public sealed class HocSinhController(
 
         var hs = await db.HocSinhs
             .AsNoTracking()
+            .Include(h => h.LopHoc)
             .Include(h => h.DiemSos).ThenInclude(d => d.ThanhPhans)
             .FirstOrDefaultAsync(x => x.MaHS == maHS, ct);
         return hs is null ? NotFound() : Ok(ToDto(hs));
@@ -189,6 +246,7 @@ public sealed class HocSinhController(
                         DiemGiuaKy = m.DiemGiuaKy,
                         DiemCuoiKy = m.DiemCuoiKy,
                         DiemTBMon = tbm,
+                        TrangThaiNhapDiem = DiemNhapTrangThai.Compute(m),
                         XepLoai = GradeCalculator.XepLoaiMon(tbm, m.DiemCuoiKy),
                         QuaMon = GradeCalculator.PassedMon(tbm, m.DiemCuoiKy),
                         Liet = GradeCalculator.IsLiet(m.DiemCuoiKy)
@@ -211,8 +269,19 @@ public sealed class HocSinhController(
             .Where(t => t.MaHS == null || t.MaHS == maHS)
             .OrderByDescending(t => t.NgayGui)
             .Take(50)
-            .Select(t => new ThongBaoTomTatDto { MaTB = t.MaTB, TieuDe = t.TieuDe ?? "", LoaiTB = t.LoaiTB, NgayGui = t.NgayGui })
+            .Select(t => new ThongBaoTomTatDto
+            {
+                MaTB = t.MaTB,
+                TieuDe = t.TieuDe ?? "",
+                LoaiTB = t.LoaiTB,
+                NgayGui = t.NgayGui,
+                NoiDung = t.NoiDung
+            })
             .ToListAsync(ct);
+
+        var phiDtos = await CanViewPhiAsync(userId, ct)
+            ? hocPhis.Select(ToHocPhiDto).ToList()
+            : [];
 
         return Ok(new HocSinhFullProfileResponse
         {
@@ -221,23 +290,31 @@ public sealed class HocSinhController(
             KhoiLop = hs.LopHoc?.KhoiLop,
             NamHocLop = hs.LopHoc?.NamHoc,
             DiemTheoKy = diemTheoKy,
-            HocPhis = await CanViewPhiAsync(userId, ct) ? hocPhis : [],
+            HocPhis = phiDtos,
             ThongBaos = thongBaos
         });
     }
 
     [HttpGet("{maHS}/lich-su-hoc-tap")]
     [Authorize(Policy = AppPolicies.CanViewStudents)]
-    public async Task<ActionResult<List<LichSuHocTapResponse>>> GetLichSuHocTap([FromRoute] string maHS, CancellationToken ct)
+    public async Task<ActionResult<List<LichSuHocTapResponse>>> GetLichSuHocTap(
+        [FromRoute] string maHS,
+        [FromQuery] string? namHoc = null,
+        [FromQuery] byte? hocKy = null,
+        CancellationToken ct = default)
     {
         var userId = current.UserId;
         if (string.IsNullOrEmpty(userId)) return Unauthorized();
         if (!await access.CanViewStudentAsync(userId, maHS, ct)) return Forbid();
 
-        var ds = await db.DiemSos.AsNoTracking()
+        var diemQuery = db.DiemSos.AsNoTracking()
             .Include(x => x.ThanhPhans)
-            .Where(x => x.MaHS == maHS)
-            .ToListAsync(ct);
+            .Where(x => x.MaHS == maHS);
+
+        if (!string.IsNullOrWhiteSpace(namHoc)) diemQuery = diemQuery.Where(x => x.NamHoc == namHoc);
+        if (hocKy.HasValue) diemQuery = diemQuery.Where(x => x.HocKy == hocKy.Value);
+
+        var ds = await diemQuery.ToListAsync(ct);
 
         var result = ds
             .GroupBy(x => new { x.NamHoc, x.HocKy })
@@ -252,6 +329,7 @@ public sealed class HocSinhController(
                     NamHoc = g.Key.NamHoc,
                     HocKy = g.Key.HocKy,
                     Tbc = tbc,
+                    HanhKiem = XepHanhKiem(tbc),
                     HocLuc = hl,
                     SoMonCoDiem = tbms.Count
                 };
@@ -264,22 +342,39 @@ public sealed class HocSinhController(
 
     [HttpGet("export/excel")]
     [Authorize(Policy = AppPolicies.CanViewStudents)]
-    public async Task<IActionResult> ExportExcel([FromQuery] string? maLop, [FromQuery] string? namHoc, CancellationToken ct)
+    public async Task<IActionResult> ExportExcel(
+        [FromQuery] string? search = null,
+        [FromQuery] string? maLop = null,
+        [FromQuery] string? khoiLop = null,
+        [FromQuery] string? namHoc = null,
+        [FromQuery] string? trangThai = null,
+        CancellationToken ct = default)
     {
         var userId = current.UserId;
         if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
-        var q = db.HocSinhs.AsNoTracking().Include(h => h.LopHoc).AsQueryable();
+        var exportQuery = db.HocSinhs.AsNoTracking().Include(h => h.LopHoc).AsQueryable();
         if (User.IsInRole(RolePermissionSeeder.Parent))
         {
             var codes = await access.GetParentStudentCodesAsync(userId, ct);
-            q = q.Where(h => codes.Contains(h.MaHS));
+            exportQuery = exportQuery.Where(h => codes.Contains(h.MaHS));
         }
 
-        if (!string.IsNullOrWhiteSpace(maLop)) q = q.Where(x => x.MaLop == maLop);
-        if (!string.IsNullOrWhiteSpace(namHoc)) q = q.Where(x => x.LopHoc != null && x.LopHoc.NamHoc == namHoc);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim();
+            exportQuery = exportQuery.Where(x =>
+                x.HoTen.Contains(s) ||
+                x.MaHS.Contains(s) ||
+                (x.DiaChi != null && x.DiaChi.Contains(s)));
+        }
 
-        var list = await q.OrderBy(x => x.MaLop).ThenBy(x => x.HoTen).ToListAsync(ct);
+        if (!string.IsNullOrWhiteSpace(maLop)) exportQuery = exportQuery.Where(x => x.MaLop == maLop);
+        if (!string.IsNullOrWhiteSpace(khoiLop)) exportQuery = exportQuery.Where(x => x.LopHoc != null && x.LopHoc.KhoiLop == khoiLop);
+        if (!string.IsNullOrWhiteSpace(namHoc)) exportQuery = exportQuery.Where(x => x.LopHoc != null && x.LopHoc.NamHoc == namHoc);
+        if (!string.IsNullOrWhiteSpace(trangThai)) exportQuery = exportQuery.Where(x => x.TrangThai == trangThai);
+
+        var list = await exportQuery.OrderBy(x => x.MaLop).ThenBy(x => x.HoTen).ToListAsync(ct);
 
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Hoc sinh");
@@ -290,6 +385,7 @@ public sealed class HocSinhController(
         ws.Cell(1, 5).Value = "TrangThai";
         ws.Cell(1, 6).Value = "Email PH";
         ws.Cell(1, 7).Value = "SDT PH";
+        ws.Cell(1, 8).Value = "DiaChi";
         var r = 2;
         foreach (var x in list)
         {
@@ -300,6 +396,7 @@ public sealed class HocSinhController(
             ws.Cell(r, 5).Value = x.TrangThai;
             ws.Cell(r, 6).Value = x.Email_PhuHuynh ?? "";
             ws.Cell(r, 7).Value = x.SDT_PhuHuynh ?? "";
+            ws.Cell(r, 8).Value = x.DiaChi ?? "";
             r++;
         }
 
@@ -310,33 +407,59 @@ public sealed class HocSinhController(
 
     [HttpPost("import/excel")]
     [Authorize(Policy = AppPolicies.CanEditStudents)]
-    public async Task<ActionResult<int>> ImportExcel([FromForm] IFormFile file, CancellationToken ct)
+    public async Task<ActionResult<HocSinhImportResultDto>> ImportExcel([FromForm] IFormFile file, CancellationToken ct)
     {
         if (file.Length == 0) return BadRequest("File rỗng");
 
+        var result = new HocSinhImportResultDto();
         await using var stream = file.OpenReadStream();
         using var wb = new XLWorkbook(stream);
         var ws = wb.Worksheet(1);
         var rows = ws.RangeUsed()?.RowsUsed().Skip(1) ?? Enumerable.Empty<IXLRangeRow>();
-        var n = 0;
         foreach (var row in rows)
         {
             var maHs = row.Cell(1).GetString().Trim();
             var hoTen = row.Cell(2).GetString().Trim();
+            var ngaySinh = TryParseExcelDate(row.Cell(3));
             var maLop = row.Cell(4).GetString().Trim();
-            if (string.IsNullOrWhiteSpace(hoTen) || string.IsNullOrWhiteSpace(maLop)) continue;
+            var trangThai = row.Cell(5).GetString().Trim();
+            var emailPh = row.Cell(6).GetString().Trim();
+            var sdtPh = row.Cell(7).GetString().Trim();
+            var diaChi = row.Cell(8).GetString().Trim();
+
+            if (string.IsNullOrWhiteSpace(hoTen) && string.IsNullOrWhiteSpace(maLop))
+            {
+                result.Skipped++;
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(hoTen) || string.IsNullOrWhiteSpace(maLop))
+            {
+                result.Skipped++;
+                result.Warnings.Add($"Dòng {row.RowNumber()}: thiếu HoTen hoặc MaLop.");
+                continue;
+            }
 
             if (string.IsNullOrWhiteSpace(maHs))
                 maHs = await StudentCodeGenerator.NextAsync(db, DateTime.UtcNow.Year, ct);
 
             if (!EduCodeFormats.IsValidStudentCode(maHs) || !EduCodeFormats.IsValidClassCode(maLop))
+            {
+                result.Skipped++;
+                result.Warnings.Add($"Dòng {row.RowNumber()}: MaHS hoặc MaLop không hợp lệ ({maHs}, {maLop}).");
                 continue;
+            }
 
             if (await db.HocSinhs.AnyAsync(x => x.MaHS == maHs, ct))
             {
                 var exist = await db.HocSinhs.FirstAsync(x => x.MaHS == maHs, ct);
                 exist.HoTen = hoTen;
                 exist.MaLop = maLop;
+                exist.NgaySinh = ngaySinh;
+                if (!string.IsNullOrWhiteSpace(trangThai)) exist.TrangThai = trangThai;
+                exist.Email_PhuHuynh = string.IsNullOrWhiteSpace(emailPh) ? exist.Email_PhuHuynh : emailPh;
+                exist.SDT_PhuHuynh = string.IsNullOrWhiteSpace(sdtPh) ? exist.SDT_PhuHuynh : sdtPh;
+                exist.DiaChi = string.IsNullOrWhiteSpace(diaChi) ? exist.DiaChi : diaChi;
             }
             else
             {
@@ -345,21 +468,24 @@ public sealed class HocSinhController(
                     MaHS = maHs,
                     HoTen = hoTen,
                     MaLop = maLop,
-                    NgaySinh = null,
-                    TrangThai = "Đang học"
+                    NgaySinh = ngaySinh,
+                    DiaChi = string.IsNullOrWhiteSpace(diaChi) ? null : diaChi,
+                    Email_PhuHuynh = string.IsNullOrWhiteSpace(emailPh) ? null : emailPh,
+                    SDT_PhuHuynh = string.IsNullOrWhiteSpace(sdtPh) ? null : sdtPh,
+                    TrangThai = string.IsNullOrWhiteSpace(trangThai) ? "Đang học" : trangThai
                 });
             }
 
-            n++;
+            result.Imported++;
         }
 
         await db.SaveChangesAsync(ct);
-        return Ok(n);
+        return Ok(result);
     }
 
     [HttpPost]
     [Authorize(Policy = AppPolicies.CanEditStudents)]
-    public async Task<ActionResult> Create([FromBody] HocSinhCreateRequest req, CancellationToken ct)
+    public async Task<ActionResult<HocSinhResponse>> Create([FromBody] HocSinhCreateRequest req, CancellationToken ct)
     {
         var maHs = string.IsNullOrWhiteSpace(req.MaHS)
             ? await StudentCodeGenerator.NextAsync(db, req.NamNhapHoc, ct)
@@ -387,7 +513,13 @@ public sealed class HocSinhController(
         };
         db.HocSinhs.Add(hs);
         await db.SaveChangesAsync(ct);
-        return CreatedAtAction(nameof(GetById), new { maHS = hs.MaHS }, ToDto(hs));
+
+        var created = await db.HocSinhs
+            .AsNoTracking()
+            .Include(x => x.LopHoc)
+            .Include(x => x.DiemSos).ThenInclude(d => d.ThanhPhans)
+            .FirstAsync(x => x.MaHS == hs.MaHS, ct);
+        return CreatedAtAction(nameof(GetById), new { maHS = created.MaHS }, ToDto(created));
     }
 
     [HttpPut("{maHS}")]
