@@ -1,22 +1,65 @@
 using EduTrack.API.Models;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace EduTrack.API.Data;
 
-public sealed class EduTrackDbContext(DbContextOptions<EduTrackDbContext> options) : DbContext(options)
+public sealed class EduTrackDbContext(DbContextOptions<EduTrackDbContext> options)
+    : IdentityDbContext<ApplicationUser, IdentityRole, string>(options)
 {
     public DbSet<HocSinh> HocSinhs => Set<HocSinh>();
     public DbSet<GiaoVien> GiaoViens => Set<GiaoVien>();
     public DbSet<LopHoc> LopHocs => Set<LopHoc>();
     public DbSet<MonHoc> MonHocs => Set<MonHoc>();
     public DbSet<DiemSo> DiemSos => Set<DiemSo>();
+    public DbSet<DiemThanhPhan> DiemThanhPhans => Set<DiemThanhPhan>();
     public DbSet<LichHoc> LichHocs => Set<LichHoc>();
     public DbSet<HocPhi> HocPhis => Set<HocPhi>();
     public DbSet<ThongBao> ThongBaos => Set<ThongBao>();
+    public DbSet<KyHoc> KyHocs => Set<KyHoc>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<ParentStudentLink> ParentStudentLinks => Set<ParentStudentLink>();
+    public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<KyHoc>()
+            .HasKey(x => new { x.NamHoc, x.HocKy });
+
+        modelBuilder.Entity<RefreshToken>()
+            .HasIndex(x => x.TokenHash)
+            .IsUnique();
+
+        modelBuilder.Entity<RefreshToken>()
+            .HasOne(x => x.User)
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ParentStudentLink>()
+            .HasIndex(x => new { x.UserId, x.MaHS })
+            .IsUnique();
+
+        modelBuilder.Entity<ParentStudentLink>()
+            .HasOne(x => x.User)
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ParentStudentLink>()
+            .HasOne(x => x.HocSinh)
+            .WithMany()
+            .HasForeignKey(x => x.MaHS)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DiemThanhPhan>()
+            .HasOne(x => x.DiemSo)
+            .WithMany(x => x.ThanhPhans)
+            .HasForeignKey(x => x.MaDiem)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<HocSinh>()
             .HasOne(x => x.LopHoc)
@@ -79,8 +122,7 @@ public sealed class EduTrackDbContext(DbContextOptions<EduTrackDbContext> option
             .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<DiemSo>()
-            .HasIndex(x => new { x.MaHS, x.MaMon, x.HocKy })
+            .HasIndex(x => new { x.MaHS, x.MaMon, x.NamHoc, x.HocKy })
             .IsUnique();
     }
 }
-

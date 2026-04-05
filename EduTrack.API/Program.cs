@@ -1,8 +1,11 @@
 using System.Text;
+using EduTrack.API.Authorization;
 using EduTrack.API.Data;
 using EduTrack.API.Helpers;
+using EduTrack.API.Models;
 using EduTrack.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -11,20 +14,59 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // Giữ PascalCase để nhất quán với frontend (student.MaHS, student.HoTen, ...)
         options.JsonSerializerOptions.PropertyNamingPolicy = null;
     });
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddProblemDetails();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<DbSeeder>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IAccessControlService, AccessControlService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
 builder.Services.AddDbContext<EduTrackDbContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("Default"));
+});
+
+builder.Services
+    .AddIdentityCore<ApplicationUser>(options =>
+    {
+        options.Password.RequiredLength = 6;
+        options.Password.RequireDigit = true;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireNonAlphanumeric = false;
+        options.User.RequireUniqueEmail = false;
+        options.Lockout.AllowedForNewUsers = true;
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+    })
+    .AddRoles<IdentityRole>()
+    .AddEntityFrameworkStores<EduTrackDbContext>()
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AppPolicies.CanManageUsers, p => p.RequireClaim("permission", AppPermissions.UsersManage));
+    options.AddPolicy(AppPolicies.CanManageRoles, p => p.RequireClaim("permission", AppPermissions.RolesManage));
+    options.AddPolicy(AppPolicies.CanConfigureSystem, p => p.RequireClaim("permission", AppPermissions.SystemConfigure));
+    options.AddPolicy(AppPolicies.CanViewStudents, p => p.RequireClaim("permission", AppPermissions.StudentsView));
+    options.AddPolicy(AppPolicies.CanEditStudents, p => p.RequireClaim("permission", AppPermissions.StudentsEdit));
+    options.AddPolicy(AppPolicies.CanViewOwnStudents, p => p.RequireClaim("permission", AppPermissions.StudentsViewOwn));
+    options.AddPolicy(AppPolicies.CanViewScores, p => p.RequireClaim("permission", AppPermissions.ScoresView));
+    options.AddPolicy(AppPolicies.CanEditScores, p => p.RequireClaim("permission", AppPermissions.ScoresEdit));
+    options.AddPolicy(AppPolicies.CanManageFinance, p => p.RequireClaim("permission", AppPermissions.FinanceManage));
+    options.AddPolicy(AppPolicies.CanViewFinance, p => p.RequireClaim("permission", AppPermissions.FinanceView));
+    options.AddPolicy(AppPolicies.CanSendNotifications, p => p.RequireClaim("permission", AppPermissions.NotificationsSend));
+    options.AddPolicy(AppPolicies.CanViewDashboard, p => p.RequireClaim("permission", AppPermissions.DashboardView));
+    options.AddPolicy(AppPolicies.CanViewReports, p => p.RequireClaim("permission", AppPermissions.ReportsView));
+    options.AddPolicy(AppPolicies.CanViewTeachers, p => p.RequireClaim("permission", AppPermissions.TeachersView));
 });
 
 builder.Services.AddCors(options =>
@@ -53,11 +95,11 @@ builder.Services
             ValidIssuer = jwt.Issuer,
             ValidAudience = jwt.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
-            ClockSkew = TimeSpan.FromSeconds(10)
+            ClockSkew = TimeSpan.FromSeconds(10),
+            NameClaimType = System.Security.Claims.ClaimTypes.NameIdentifier,
+            RoleClaimType = System.Security.Claims.ClaimTypes.Role
         };
     });
-
-builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -66,7 +108,6 @@ using (var scope = app.Services.CreateScope())
     var seeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
     await seeder.SeedAsync();
 
-    // Patch TrangThai cho các bản ghi cũ chưa có giá trị (sau migration AddTrangThaiToHocSinh)
     var db = scope.ServiceProvider.GetRequiredService<EduTrackDbContext>();
     var needPatch = await db.HocSinhs.Where(h => h.TrangThai == "").ToListAsync();
     if (needPatch.Count > 0)
@@ -83,6 +124,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 
 app.UseCors("Frontend");
 

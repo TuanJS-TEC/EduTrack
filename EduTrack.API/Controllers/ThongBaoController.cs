@@ -1,3 +1,4 @@
+using EduTrack.API.Authorization;
 using EduTrack.API.Data;
 using EduTrack.API.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -27,7 +28,7 @@ public sealed class ThongBaoController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Policy = AppPolicies.CanSendNotifications)]
     public async Task<ActionResult> Create([FromBody] ThongBao input)
     {
         if (input.NgayGui == default) input.NgayGui = DateTime.UtcNow;
@@ -54,7 +55,7 @@ public sealed class ThongBaoController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpDelete("{maTB:int}")]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Policy = AppPolicies.CanSendNotifications)]
     public async Task<ActionResult> Delete([FromRoute] int maTB)
     {
         var item = await db.ThongBaos.FirstOrDefaultAsync(x => x.MaTB == maTB);
