@@ -24,4 +24,32 @@ public sealed class AuditLogService(EduTrackDbContext db, ICurrentUserService cu
 
         await db.SaveChangesAsync(ct);
     }
+
+    public async Task LogViolationAsync(
+        string action,
+        string entityType,
+        string? entityKey,
+        string violationCode,
+        string severity,
+        string? metadataJson = null,
+        CancellationToken ct = default)
+    {
+        var userId = current.UserId;
+        var userName = current.UserName;
+
+        db.AuditLogEntries.Add(new AuditLogEntry
+        {
+            UserId = userId,
+            UserName = userName,
+            Action = action,
+            EntityType = entityType,
+            EntityKey = entityKey,
+            ViolationCode = violationCode,
+            Severity = severity,
+            MetadataJson = metadataJson,
+            AtUtc = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync(ct);
+    }
 }

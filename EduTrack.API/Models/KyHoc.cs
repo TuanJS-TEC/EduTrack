@@ -11,4 +11,13 @@ public sealed class KyHoc
     public byte HocKy { get; set; }
 
     public bool Locked { get; set; }
+
+    [MaxLength(20)]
+    public string TrangThai { get; set; } = "Mo";
+
+    public DateTime? SubmittedAtUtc { get; set; }
+    public DateTime? ApprovedAtUtc { get; set; }
+    public DateTime? ReopenedAtUtc { get; set; }
+
+    public ICollection<KyHocWorkflowLog> WorkflowLogs { get; set; } = new List<KyHocWorkflowLog>();
 }

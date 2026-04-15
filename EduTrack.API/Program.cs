@@ -3,6 +3,7 @@ using EduTrack.API.Authorization;
 using QuestPDF.Infrastructure;
 using EduTrack.API.Data;
 using EduTrack.API.Helpers;
+using EduTrack.API.Hubs;
 using EduTrack.API.Models;
 using EduTrack.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -23,6 +24,7 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddProblemDetails();
+builder.Services.AddSignalR();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -31,6 +33,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAccessControlService, AccessControlService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<INotificationRealtimeService, NotificationRealtimeService>();
 
 builder.Services.AddDbContext<EduTrackDbContext>(options =>
 {
@@ -102,6 +105,20 @@ builder.Services
             NameClaimType = System.Security.Claims.ClaimTypes.NameIdentifier,
             RoleClaimType = System.Security.Claims.ClaimTypes.Role
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments(NotificationHub.HubPath))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
 
 var app = builder.Build();
@@ -137,5 +154,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<NotificationHub>(NotificationHub.HubPath);
 
 app.Run();

@@ -89,6 +89,33 @@ public sealed class DiemSoController(
         return Ok(ToResponse(item));
     }
 
+    [HttpGet("{maDiem:int}/audit-trail")]
+    [Authorize(Policy = AppPolicies.CanViewReports)]
+    public async Task<ActionResult<List<AuditLogEntryDto>>> GetAuditTrail([FromRoute] int maDiem, CancellationToken ct)
+    {
+        var logs = await db.AuditLogEntries.AsNoTracking()
+            .Where(x => x.EntityType == nameof(DiemSo) && x.EntityKey == maDiem.ToString())
+            .OrderByDescending(x => x.AtUtc)
+            .Select(x => new AuditLogEntryDto
+            {
+                Id = x.Id,
+                UserId = x.UserId,
+                UserName = x.UserName,
+                Action = x.Action,
+                EntityType = x.EntityType,
+                EntityKey = x.EntityKey,
+                OldSnapshot = x.OldSnapshot,
+                NewSnapshot = x.NewSnapshot,
+                ViolationCode = x.ViolationCode,
+                Severity = x.Severity,
+                MetadataJson = x.MetadataJson,
+                AtUtc = x.AtUtc
+            })
+            .ToListAsync(ct);
+
+        return Ok(logs);
+    }
+
     [HttpPost("upsert")]
     [Authorize(Policy = AppPolicies.CanEditScores)]
     public async Task<ActionResult<DiemSoResponse>> Upsert([FromBody] DiemSoUpsertRequest req, CancellationToken ct)
@@ -107,11 +134,35 @@ public sealed class DiemSoController(
 
         var err = ScoreInputValidator.ValidateRequest(req);
         if (err is not null)
+        {
+            await LogRuleViolationAsync(
+                "DiemSo.RuleViolation",
+                req.MaHS,
+                req.MaMon,
+                req.NamHoc,
+                req.HocKy,
+                "SCORE_OUT_OF_RANGE",
+                "High",
+                err,
+                ct);
             return ProblemResponses.Of(400, err, ApiErrorCodes.ScoreOutOfRange);
+        }
 
         var ky = await db.KyHocs.AsNoTracking().FirstOrDefaultAsync(k => k.NamHoc == req.NamHoc && k.HocKy == req.HocKy, ct);
         if (ky?.Locked == true)
+        {
+            await LogRuleViolationAsync(
+                "DiemSo.RuleViolation",
+                req.MaHS,
+                req.MaMon,
+                req.NamHoc,
+                req.HocKy,
+                "SEMESTER_LOCKED",
+                "Critical",
+                "Học kỳ đã chốt, không được sửa điểm",
+                ct);
             return ProblemResponses.Of(409, "Học kỳ đã chốt, không được sửa điểm", ApiErrorCodes.SemesterLocked);
+        }
 
         var existsHS = await db.HocSinhs.AnyAsync(x => x.MaHS == req.MaHS, ct);
         if (!existsHS) return ProblemResponses.Of(400, "Học sinh không tồn tại");
@@ -156,7 +207,19 @@ public sealed class DiemSoController(
 
         var ky = await db.KyHocs.AsNoTracking().FirstOrDefaultAsync(k => k.NamHoc == req.NamHoc && k.HocKy == req.HocKy, ct);
         if (ky?.Locked == true)
+        {
+            await LogRuleViolationAsync(
+                "DiemSo.BulkRuleViolation",
+                null,
+                req.MaMon,
+                req.NamHoc,
+                req.HocKy,
+                "SEMESTER_LOCKED",
+                "Critical",
+                "Bulk upsert bị chặn vì học kỳ đã chốt",
+                ct);
             return ProblemResponses.Of(409, "Học kỳ đã chốt, không được sửa điểm", ApiErrorCodes.SemesterLocked);
+        }
 
         if (!EduCodeFormats.IsValidClassCode(req.MaLop) || !EduCodeFormats.IsValidSubjectCode(req.MaMon))
             return ProblemResponses.Of(400, "MaLop/MaMon không đúng định dạng");
@@ -262,7 +325,19 @@ public sealed class DiemSoController(
 
         var ky = await db.KyHocs.AsNoTracking().FirstOrDefaultAsync(k => k.NamHoc == namHoc && k.HocKy == hocKy, ct);
         if (ky?.Locked == true)
+        {
+            await LogRuleViolationAsync(
+                "DiemSo.ImportRuleViolation",
+                null,
+                maMon,
+                namHoc,
+                hocKy,
+                "SEMESTER_LOCKED",
+                "Critical",
+                "Import bị chặn vì học kỳ đã chốt",
+                ct);
             return ProblemResponses.Of(409, "Học kỳ đã chốt", ApiErrorCodes.SemesterLocked);
+        }
 
         if (!await db.MonHocs.AnyAsync(m => m.MaMon == maMon, ct))
             return ProblemResponses.Of(400, "Môn học không tồn tại");
@@ -381,7 +456,19 @@ public sealed class DiemSoController(
 
         var ky = await db.KyHocs.AsNoTracking().FirstOrDefaultAsync(k => k.NamHoc == item.NamHoc && k.HocKy == item.HocKy, ct);
         if (ky?.Locked == true)
+        {
+            await LogRuleViolationAsync(
+                "DiemSo.DeleteRuleViolation",
+                item.MaHS,
+                item.MaMon,
+                item.NamHoc,
+                item.HocKy,
+                "SEMESTER_LOCKED",
+                "Critical",
+                "Xóa điểm bị chặn vì học kỳ đã chốt",
+                ct);
             return ProblemResponses.Of(409, "Học kỳ đã chốt", ApiErrorCodes.SemesterLocked);
+        }
 
         if (!await access.CanEditScoreAsync(userId, item.MaHS, item.MaMon, item.NamHoc, item.HocKy, ct))
             return Forbid();
@@ -905,5 +992,35 @@ public sealed class DiemSoController(
             if (req.Diem15p.HasValue)
                 item.ThanhPhans.Add(new DiemThanhPhan { Loai = 2, Diem = req.Diem15p.Value, ThuTu = 0 });
         }
+    }
+
+    private Task LogRuleViolationAsync(
+        string action,
+        string? maHS,
+        string? maMon,
+        string namHoc,
+        byte hocKy,
+        string violationCode,
+        string severity,
+        string message,
+        CancellationToken ct)
+    {
+        var metadata = JsonSerializer.Serialize(new
+        {
+            MaHS = maHS,
+            MaMon = maMon,
+            NamHoc = namHoc,
+            HocKy = hocKy,
+            Message = message
+        });
+
+        return audit.LogViolationAsync(
+            action,
+            nameof(DiemSo),
+            maHS is null || maMon is null ? $"{maMon}/{namHoc}/HK{hocKy}" : $"{maHS}/{maMon}/{namHoc}/HK{hocKy}",
+            violationCode,
+            severity,
+            metadata,
+            ct);
     }
 }

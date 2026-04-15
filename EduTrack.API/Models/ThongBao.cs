@@ -17,6 +17,10 @@ public sealed class ThongBao
     [MaxLength(50)]
     public string? LoaiTB { get; set; }
 
+    public bool DaDoc { get; set; }
+
+    public DateTime? NgayDoc { get; set; }
+
     [MaxLength(20)]
     public string? MaHS { get; set; }
 

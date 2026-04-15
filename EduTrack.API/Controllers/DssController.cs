@@ -179,4 +179,166 @@ public sealed class DssController(EduTrackDbContext db) : ControllerBase
             TheoLop = theoLop
         });
     }
+
+    [HttpGet("can-thiep")]
+    [Authorize(Policy = AppPolicies.CanViewDashboard)]
+    public async Task<ActionResult<DssInterventionResponse>> CanThiep(
+        [FromQuery] byte hocKy,
+        [FromQuery] string namHoc = "2025-2026",
+        [FromQuery] string? maLop = null,
+        CancellationToken ct = default)
+    {
+        var hsQuery = db.HocSinhs.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(maLop))
+            hsQuery = hsQuery.Where(x => x.MaLop == maLop);
+
+        var hsList = await hsQuery.Select(x => new { x.MaHS, x.HoTen, x.MaLop }).ToListAsync(ct);
+        var maHsSet = hsList.Select(x => x.MaHS).ToHashSet();
+        var dsRows = await db.DiemSos.AsNoTracking()
+            .Include(x => x.ThanhPhans)
+            .Include(x => x.MonHoc)
+            .Where(x => x.NamHoc == namHoc && x.HocKy == hocKy && maHsSet.Contains(x.MaHS))
+            .ToListAsync(ct);
+
+        var byHs = dsRows.GroupBy(x => x.MaHS).ToDictionary(x => x.Key, x => x.ToList());
+        var result = new List<DssInterventionItemDto>();
+        foreach (var hs in hsList)
+        {
+            if (!byHs.TryGetValue(hs.MaHS, out var monRows) || monRows.Count == 0)
+                continue;
+
+            var tbList = monRows.Select(DiemSoScoreReader.RecalculateTbm).Where(x => x.HasValue).Select(x => x!.Value).ToList();
+            var tbHocKy = tbList.Count == 0 ? (decimal?)null : GradeCalculator.RoundOneDecimal(tbList.Average());
+            var monNguyCo = monRows
+                .Select(m => new { m.MaMon, m.MonHoc, Tbm = DiemSoScoreReader.RecalculateTbm(m), m.DiemCuoiKy })
+                .Where(x => !GradeCalculator.PassedMon(x.Tbm, x.DiemCuoiKy) || (x.Tbm.HasValue && x.Tbm.Value < 5.0m))
+                .OrderBy(x => x.Tbm ?? 0m)
+                .ToList();
+
+            if (monNguyCo.Count == 0)
+                continue;
+
+            var mucRuiRo = (tbHocKy, monNguyCo.Count) switch
+            {
+                (null, _) => "Cao",
+                (< 4.5m, _) => "Cao",
+                (_, >= 3) => "Cao",
+                (< 5.5m, _) => "TrungBinh",
+                (_, 2) => "TrungBinh",
+                _ => "Thap"
+            };
+
+            var monUuTien = monNguyCo
+                .Take(3)
+                .Select(x => $"{x.MaMon}-{x.MonHoc?.TenMon ?? x.MaMon}")
+                .ToList();
+
+            var khuyenNghi = new List<string>
+            {
+                "Tổ chức phụ đạo theo nhóm môn ưu tiên trong 2 tuần.",
+                "Giao bài luyện tập có giám sát phụ huynh."
+            };
+            if (mucRuiRo == "Cao") khuyenNghi.Add("Họp GVCN + bộ môn + phụ huynh để lập cam kết can thiệp.");
+
+            result.Add(new DssInterventionItemDto
+            {
+                MaHS = hs.MaHS,
+                HoTen = hs.HoTen,
+                MaLop = hs.MaLop,
+                TbHocKy = tbHocKy,
+                SoMonNguyCo = monNguyCo.Count,
+                MucRuiRo = mucRuiRo,
+                MonUuTien = monUuTien,
+                KhuyenNghi = khuyenNghi
+            });
+        }
+
+        return Ok(new DssInterventionResponse
+        {
+            NamHoc = namHoc,
+            HocKy = hocKy,
+            MaLop = maLop,
+            DanhSachCanThiep = result
+                .OrderByDescending(x => RiskWeight(x.MucRuiRo))
+                .ThenByDescending(x => x.SoMonNguyCo)
+                .ThenBy(x => x.HoTen)
+                .ToList()
+        });
+    }
+
+    [HttpPost("mo-phong")]
+    [Authorize(Policy = AppPolicies.CanViewDashboard)]
+    public async Task<ActionResult<DssMultiScenarioResponse>> MoPhongNhieuKichBan(
+        [FromBody] DssMultiScenarioRequest req,
+        CancellationToken ct = default)
+    {
+        if (req.Scenarios.Count == 0)
+            return BadRequest(new { message = "Danh sách kịch bản rỗng." });
+
+        var maHsSet = req.Scenarios.Select(x => x.MaHS).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToHashSet();
+        var hsQuery = db.HocSinhs.AsNoTracking().Where(x => maHsSet.Contains(x.MaHS));
+        if (!string.IsNullOrWhiteSpace(req.MaLop))
+            hsQuery = hsQuery.Where(x => x.MaLop == req.MaLop);
+        var hsRows = await hsQuery.Select(x => x.MaHS).ToListAsync(ct);
+        var allowedSet = hsRows.ToHashSet();
+
+        var dsRows = await db.DiemSos.AsNoTracking()
+            .Include(x => x.ThanhPhans)
+            .Where(x => x.NamHoc == req.NamHoc && x.HocKy == req.HocKy && allowedSet.Contains(x.MaHS))
+            .ToListAsync(ct);
+
+        var byHs = dsRows.GroupBy(x => x.MaHS).ToDictionary(x => x.Key, x => x.ToList());
+        var output = new List<DssMultiScenarioStudentResultDto>();
+
+        foreach (var scenario in req.Scenarios)
+        {
+            if (!byHs.TryGetValue(scenario.MaHS, out var monRows) || monRows.Count == 0) continue;
+
+            var beforeTbList = monRows.Select(DiemSoScoreReader.RecalculateTbm).Where(x => x.HasValue).Select(x => x!.Value).ToList();
+            var beforeTb = beforeTbList.Count == 0 ? (decimal?)null : GradeCalculator.RoundOneDecimal(beforeTbList.Average());
+            var beforeXl = GradeCalculator.CalcHocLuc(monRows.Select(m => (DiemSoScoreReader.RecalculateTbm(m), m.DiemCuoiKy)).ToList());
+
+            var adjustMap = scenario.DieuChinhMonHoc.ToDictionary(x => x.MaMon, x => x.DiemCuoiKyGiaDinh, StringComparer.OrdinalIgnoreCase);
+            var afterPairs = new List<(decimal? tbm, decimal? ck)>();
+            foreach (var m in monRows)
+            {
+                var (mieng, p15) = DiemSoScoreReader.GetComponentLists(m);
+                var ck = adjustMap.TryGetValue(m.MaMon, out var newCk) ? newCk : m.DiemCuoiKy;
+                var tbm = GradeCalculator.CalcTbm(mieng, p15, m.DiemGiuaKy, ck);
+                afterPairs.Add((tbm, ck));
+            }
+
+            var afterTbList = afterPairs.Where(x => x.tbm.HasValue).Select(x => x.tbm!.Value).ToList();
+            var afterTb = afterTbList.Count == 0 ? (decimal?)null : GradeCalculator.RoundOneDecimal(afterTbList.Average());
+            var afterXl = GradeCalculator.CalcHocLuc(afterPairs);
+
+            output.Add(new DssMultiScenarioStudentResultDto
+            {
+                MaHS = scenario.MaHS,
+                TbTruoc = beforeTb,
+                TbSau = afterTb,
+                ChenhLech = (beforeTb, afterTb) switch
+                {
+                    (null, _) => null,
+                    (_, null) => null,
+                    _ => GradeCalculator.RoundOneDecimal(afterTb!.Value - beforeTb!.Value)
+                },
+                XepLoaiTruoc = beforeXl,
+                XepLoaiSau = afterXl,
+                MonTacDong = adjustMap.Keys.OrderBy(x => x).ToList()
+            });
+        }
+
+        return Ok(new DssMultiScenarioResponse
+        {
+            NamHoc = req.NamHoc,
+            HocKy = req.HocKy,
+            MaLop = req.MaLop,
+            KetQua = output.OrderByDescending(x => x.ChenhLech ?? decimal.MinValue).ThenBy(x => x.MaHS).ToList()
+        });
+    }
+
+    private static int RiskWeight(string level) =>
+        level.Equals("Cao", StringComparison.OrdinalIgnoreCase) ? 3 :
+        level.Equals("TrungBinh", StringComparison.OrdinalIgnoreCase) ? 2 : 1;
 }

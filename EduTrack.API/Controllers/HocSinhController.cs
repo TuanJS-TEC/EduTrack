@@ -274,6 +274,8 @@ public sealed class HocSinhController(
                 MaTB = t.MaTB,
                 TieuDe = t.TieuDe ?? "",
                 LoaiTB = t.LoaiTB,
+                DaDoc = t.DaDoc,
+                NgayDoc = t.NgayDoc,
                 NgayGui = t.NgayGui,
                 NoiDung = t.NoiDung
             })

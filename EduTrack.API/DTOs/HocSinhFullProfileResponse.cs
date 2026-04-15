@@ -25,6 +25,8 @@ public sealed class ThongBaoTomTatDto
     public int MaTB { get; set; }
     public string TieuDe { get; set; } = "";
     public string? LoaiTB { get; set; }
+    public bool DaDoc { get; set; }
+    public DateTime? NgayDoc { get; set; }
     public DateTime NgayGui { get; set; }
     public string? NoiDung { get; set; }
 }

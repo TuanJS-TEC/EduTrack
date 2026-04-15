@@ -21,6 +21,7 @@ public sealed class EduTrackDbContext(DbContextOptions<EduTrackDbContext> option
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ParentStudentLink> ParentStudentLinks => Set<ParentStudentLink>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
+    public DbSet<KyHocWorkflowLog> KyHocWorkflowLogs => Set<KyHocWorkflowLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -28,6 +29,19 @@ public sealed class EduTrackDbContext(DbContextOptions<EduTrackDbContext> option
 
         modelBuilder.Entity<KyHoc>()
             .HasKey(x => new { x.NamHoc, x.HocKy });
+
+        modelBuilder.Entity<KyHoc>()
+            .Property(x => x.TrangThai)
+            .HasMaxLength(20);
+
+        modelBuilder.Entity<KyHocWorkflowLog>()
+            .HasOne(x => x.KyHoc)
+            .WithMany(x => x.WorkflowLogs)
+            .HasForeignKey(x => new { x.NamHoc, x.HocKy })
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<KyHocWorkflowLog>()
+            .HasIndex(x => new { x.NamHoc, x.HocKy, x.AtUtc });
 
         modelBuilder.Entity<RefreshToken>()
             .HasIndex(x => x.TokenHash)
@@ -120,6 +134,9 @@ public sealed class EduTrackDbContext(DbContextOptions<EduTrackDbContext> option
             .WithMany(x => x.ThongBaos)
             .HasForeignKey(x => x.MaHS)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ThongBao>()
+            .HasIndex(x => new { x.MaHS, x.LoaiTB, x.DaDoc, x.NgayGui });
 
         modelBuilder.Entity<DiemSo>()
             .HasIndex(x => new { x.MaHS, x.MaMon, x.NamHoc, x.HocKy })

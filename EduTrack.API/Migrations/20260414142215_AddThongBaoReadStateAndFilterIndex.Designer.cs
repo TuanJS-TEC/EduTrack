@@ -4,6 +4,7 @@ using EduTrack.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EduTrack.API.Migrations
 {
     [DbContext(typeof(EduTrackDbContext))]
-    partial class EduTrackDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260414142215_AddThongBaoReadStateAndFilterIndex")]
+    partial class AddThongBaoReadStateAndFilterIndex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -119,18 +122,11 @@ namespace EduTrack.API.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
-                    b.Property<string>("MetadataJson")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("NewSnapshot")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("OldSnapshot")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Severity")
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
 
                     b.Property<string>("UserId")
                         .HasMaxLength(450)
@@ -139,10 +135,6 @@ namespace EduTrack.API.Migrations
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("ViolationCode")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
 
                     b.HasKey("Id");
 
@@ -339,73 +331,12 @@ namespace EduTrack.API.Migrations
                     b.Property<byte>("HocKy")
                         .HasColumnType("tinyint");
 
-                    b.Property<DateTime?>("ApprovedAtUtc")
-                        .HasColumnType("datetime2");
-
                     b.Property<bool>("Locked")
                         .HasColumnType("bit");
-
-                    b.Property<DateTime?>("ReopenedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("SubmittedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("TrangThai")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
 
                     b.HasKey("NamHoc", "HocKy");
 
                     b.ToTable("KyHocs");
-                });
-
-            modelBuilder.Entity("EduTrack.API.Models.KyHocWorkflowLog", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("AtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("BienBan")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("FromStatus")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<byte>("HocKy")
-                        .HasColumnType("tinyint");
-
-                    b.Property<string>("NamHoc")
-                        .IsRequired()
-                        .HasMaxLength(12)
-                        .HasColumnType("nvarchar(12)");
-
-                    b.Property<string>("PerformedByUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("PerformedByUserName")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("ToStatus")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NamHoc", "HocKy", "AtUtc");
-
-                    b.ToTable("KyHocWorkflowLogs");
                 });
 
             modelBuilder.Entity("EduTrack.API.Models.LichHoc", b =>
@@ -805,17 +736,6 @@ namespace EduTrack.API.Migrations
                     b.Navigation("LopHoc");
                 });
 
-            modelBuilder.Entity("EduTrack.API.Models.KyHocWorkflowLog", b =>
-                {
-                    b.HasOne("EduTrack.API.Models.KyHoc", "KyHoc")
-                        .WithMany("WorkflowLogs")
-                        .HasForeignKey("NamHoc", "HocKy")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("KyHoc");
-                });
-
             modelBuilder.Entity("EduTrack.API.Models.LichHoc", b =>
                 {
                     b.HasOne("EduTrack.API.Models.GiaoVien", "GiaoVien")
@@ -974,11 +894,6 @@ namespace EduTrack.API.Migrations
                     b.Navigation("HocPhis");
 
                     b.Navigation("ThongBaos");
-                });
-
-            modelBuilder.Entity("EduTrack.API.Models.KyHoc", b =>
-                {
-                    b.Navigation("WorkflowLogs");
                 });
 
             modelBuilder.Entity("EduTrack.API.Models.LopHoc", b =>
