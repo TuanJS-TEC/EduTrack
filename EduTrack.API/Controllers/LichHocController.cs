@@ -1,3 +1,4 @@
+using EduTrack.API.Authorization;
 using EduTrack.API.Data;
 using EduTrack.API.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -12,6 +13,7 @@ namespace EduTrack.API.Controllers;
 public sealed class LichHocController(EduTrackDbContext db) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = AppPolicies.CanViewStudents)]
     public async Task<ActionResult<List<LichHoc>>> GetAll([FromQuery] string? maLop)
     {
         var q = db.LichHocs.AsNoTracking().AsQueryable();
@@ -20,6 +22,7 @@ public sealed class LichHocController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpGet("{maLich:int}")]
+    [Authorize(Policy = AppPolicies.CanViewStudents)]
     public async Task<ActionResult<LichHoc>> GetById([FromRoute] int maLich)
     {
         var item = await db.LichHocs.AsNoTracking().FirstOrDefaultAsync(x => x.MaLich == maLich);
@@ -27,7 +30,7 @@ public sealed class LichHocController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
     public async Task<ActionResult> Create([FromBody] LichHoc input)
     {
         db.LichHocs.Add(input);
@@ -36,7 +39,7 @@ public sealed class LichHocController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpPut("{maLich:int}")]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
     public async Task<ActionResult> Update([FromRoute] int maLich, [FromBody] LichHoc input)
     {
         var item = await db.LichHocs.FirstOrDefaultAsync(x => x.MaLich == maLich);
@@ -55,7 +58,7 @@ public sealed class LichHocController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpDelete("{maLich:int}")]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
     public async Task<ActionResult> Delete([FromRoute] int maLich)
     {
         var item = await db.LichHocs.FirstOrDefaultAsync(x => x.MaLich == maLich);

@@ -18,6 +18,9 @@ public sealed class DiemSo
 
     public byte HocKy { get; set; }
 
+    [MaxLength(12)]
+    public string NamHoc { get; set; } = "2025-2026";
+
     [Column(TypeName = "decimal(4,2)")]
     public decimal? DiemMieng { get; set; }
 
@@ -35,5 +38,7 @@ public sealed class DiemSo
 
     public HocSinh? HocSinh { get; set; }
     public MonHoc? MonHoc { get; set; }
+
+    public ICollection<DiemThanhPhan> ThanhPhans { get; set; } = new List<DiemThanhPhan>();
 }
 

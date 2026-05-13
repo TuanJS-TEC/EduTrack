@@ -1,3 +1,4 @@
+using EduTrack.API.Authorization;
 using EduTrack.API.Data;
 using EduTrack.API.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -12,12 +13,14 @@ namespace EduTrack.API.Controllers;
 public sealed class GiaoVienController(EduTrackDbContext db) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = AppPolicies.CanViewTeachers)]
     public async Task<ActionResult<List<GiaoVien>>> GetAll()
     {
         return Ok(await db.GiaoViens.AsNoTracking().OrderBy(x => x.HoTen).ToListAsync());
     }
 
     [HttpGet("{maGV}")]
+    [Authorize(Policy = AppPolicies.CanViewTeachers)]
     public async Task<ActionResult<GiaoVien>> GetById([FromRoute] string maGV)
     {
         var item = await db.GiaoViens.AsNoTracking().FirstOrDefaultAsync(x => x.MaGV == maGV);
@@ -25,7 +28,7 @@ public sealed class GiaoVienController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
     public async Task<ActionResult> Create([FromBody] GiaoVien input)
     {
         if (await db.GiaoViens.AnyAsync(x => x.MaGV == input.MaGV))
@@ -37,7 +40,7 @@ public sealed class GiaoVienController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpPut("{maGV}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
     public async Task<ActionResult> Update([FromRoute] string maGV, [FromBody] GiaoVien input)
     {
         var item = await db.GiaoViens.FirstOrDefaultAsync(x => x.MaGV == maGV);
@@ -53,7 +56,7 @@ public sealed class GiaoVienController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpDelete("{maGV}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
     public async Task<ActionResult> Delete([FromRoute] string maGV)
     {
         var item = await db.GiaoViens.FirstOrDefaultAsync(x => x.MaGV == maGV);

@@ -45,7 +45,6 @@ export const apiService = {
 
   // LopHoc
   getLopHocs: () => api.get('/api/lophoc'),
-  getLopHocById: (id) => api.get(`/api/lophoc/${id}`),
 
   // LichHoc
   getLichHocByLop: (maLop) => api.get('/api/lichhoc', { params: { maLop } }),

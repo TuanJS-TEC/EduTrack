@@ -1,3 +1,4 @@
+using EduTrack.API.Authorization;
 using EduTrack.API.Data;
 using EduTrack.API.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -12,6 +13,7 @@ namespace EduTrack.API.Controllers;
 public sealed class MonHocController(EduTrackDbContext db) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = AppPolicies.CanViewStudents)]
     public async Task<ActionResult<List<MonHoc>>> GetAll([FromQuery] string? maGV)
     {
         var q = db.MonHocs.AsNoTracking().AsQueryable();
@@ -20,6 +22,7 @@ public sealed class MonHocController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpGet("{maMon}")]
+    [Authorize(Policy = AppPolicies.CanViewStudents)]
     public async Task<ActionResult<MonHoc>> GetById([FromRoute] string maMon)
     {
         var item = await db.MonHocs.AsNoTracking().FirstOrDefaultAsync(x => x.MaMon == maMon);
@@ -27,7 +30,7 @@ public sealed class MonHocController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
     public async Task<ActionResult> Create([FromBody] MonHoc input)
     {
         if (await db.MonHocs.AnyAsync(x => x.MaMon == input.MaMon))
@@ -39,7 +42,7 @@ public sealed class MonHocController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpPut("{maMon}")]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
     public async Task<ActionResult> Update([FromRoute] string maMon, [FromBody] MonHoc input)
     {
         var item = await db.MonHocs.FirstOrDefaultAsync(x => x.MaMon == maMon);
@@ -55,7 +58,7 @@ public sealed class MonHocController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpDelete("{maMon}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
     public async Task<ActionResult> Delete([FromRoute] string maMon)
     {
         var item = await db.MonHocs.FirstOrDefaultAsync(x => x.MaMon == maMon);

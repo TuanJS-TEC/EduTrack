@@ -1,3 +1,4 @@
+using EduTrack.API.Authorization;
 using EduTrack.API.Data;
 using EduTrack.API.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -12,6 +13,7 @@ namespace EduTrack.API.Controllers;
 public sealed class LopHocController(EduTrackDbContext db) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = AppPolicies.CanViewStudents)]
     public async Task<ActionResult<List<LopHoc>>> GetAll([FromQuery] string? namHoc, [FromQuery] string? khoiLop)
     {
         var q = db.LopHocs.AsNoTracking().AsQueryable();
@@ -22,6 +24,7 @@ public sealed class LopHocController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpGet("{maLop}")]
+    [Authorize(Policy = AppPolicies.CanViewStudents)]
     public async Task<ActionResult<LopHoc>> GetById([FromRoute] string maLop)
     {
         var item = await db.LopHocs.AsNoTracking().FirstOrDefaultAsync(x => x.MaLop == maLop);
@@ -29,7 +32,7 @@ public sealed class LopHocController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
     public async Task<ActionResult> Create([FromBody] LopHoc input)
     {
         if (await db.LopHocs.AnyAsync(x => x.MaLop == input.MaLop))
@@ -41,7 +44,7 @@ public sealed class LopHocController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpPut("{maLop}")]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
     public async Task<ActionResult> Update([FromRoute] string maLop, [FromBody] LopHoc input)
     {
         var item = await db.LopHocs.FirstOrDefaultAsync(x => x.MaLop == maLop);
@@ -57,7 +60,7 @@ public sealed class LopHocController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpDelete("{maLop}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
     public async Task<ActionResult> Delete([FromRoute] string maLop)
     {
         var item = await db.LopHocs.FirstOrDefaultAsync(x => x.MaLop == maLop);
