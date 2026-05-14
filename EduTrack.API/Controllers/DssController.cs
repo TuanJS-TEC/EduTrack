@@ -11,7 +11,10 @@ namespace EduTrack.API.Controllers;
 [ApiController]
 [Route("api/dss")]
 [Authorize]
-public sealed class DssController(EduTrackDbContext db) : ControllerBase
+public sealed class DssController(
+    EduTrackDbContext db,
+    ICurrentUserService current,
+    IAccessControlService access) : ControllerBase
 {
     [HttpPost("what-if")]
     [Authorize(Policy = AppPolicies.CanEditScores)]
@@ -61,6 +64,15 @@ public sealed class DssController(EduTrackDbContext db) : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(maLop))
             q = q.Where(x => x.HocSinh != null && x.HocSinh.MaLop == maLop);
+
+        if (User.IsInRole(RolePermissionSeeder.Parent))
+        {
+            var userId = current.UserId;
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+            var codes = await access.GetParentStudentCodesAsync(userId, ct);
+            if (codes.Count == 0) return Ok(new List<CanhBaoRoiMonResponse>());
+            q = q.Where(x => codes.Contains(x.MaHS));
+        }
 
         var rows = await q.ToListAsync(ct);
 
@@ -149,24 +161,29 @@ public sealed class DssController(EduTrackDbContext db) : ControllerBase
             if (vals.Count > 0) tbByHs[kv.Key] = GradeCalculator.RoundOneDecimal(vals.Average());
         }
 
-        var theoLop = hs
-            .GroupBy(x => new { x.MaLop, x.TenLop })
-            .Select(g =>
-            {
-                var tbList = g.Select(h => tbByHs.TryGetValue(h.MaHS, out var v) ? (decimal?)v : null)
-                    .Where(v => v.HasValue).Select(v => v!.Value).ToList();
+        var allLops = await db.LopHocs.AsNoTracking()
+            .Where(l => l.NamHoc == namHoc)
+            .OrderBy(l => l.TenLop)
+            .Select(l => new { l.MaLop, l.TenLop })
+            .ToListAsync(ct);
 
-                var tbChung = tbList.Count == 0 ? (decimal?)null : GradeCalculator.RoundOneDecimal(tbList.Average());
-                return new DashboardLopSummary
-                {
-                    MaLop = g.Key.MaLop,
-                    TenLop = g.Key.TenLop,
-                    SiSo = g.Count(),
-                    TbChung = tbChung
-                };
-            })
-            .OrderBy(x => x.TenLop)
-            .ToList();
+        var theoLop = allLops.Select(lop =>
+        {
+            var inLop = hs.Where(h => h.MaLop == lop.MaLop).ToList();
+            var tbList = inLop
+                .Select(h => tbByHs.TryGetValue(h.MaHS, out var v) ? (decimal?)v : null)
+                .Where(v => v.HasValue)
+                .Select(v => v!.Value)
+                .ToList();
+            var tbChung = tbList.Count == 0 ? (decimal?)null : GradeCalculator.RoundOneDecimal(tbList.Average());
+            return new DashboardLopSummary
+            {
+                MaLop = lop.MaLop,
+                TenLop = lop.TenLop,
+                SiSo = inLop.Count,
+                TbChung = tbChung
+            };
+        }).ToList();
 
         return Ok(new DashboardHocLucResponse
         {

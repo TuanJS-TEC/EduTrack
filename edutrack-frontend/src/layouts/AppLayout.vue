@@ -40,6 +40,14 @@ async function handleCommand(command) {
   if (command === 'logout') {
     auth.logout()
     await router.push('/login')
+    return
+  }
+  if (command === 'profile') {
+    await router.push('/profile')
+    return
+  }
+  if (command === 'settings') {
+    await router.push('/settings')
   }
 }
 </script>
@@ -62,12 +70,14 @@ async function handleCommand(command) {
       <!-- MENU -->
       <div class="px-3 pb-8 flex-1" :class="{ 'px-3': isCollapsed }">
         <!-- OVERVIEW -->
-        <p v-show="!isCollapsed" class="px-3 text-xs font-bold text-gray-400 mb-2 mt-4 transition-all">OVERVIEW</p>
-        <div v-show="isCollapsed" class="h-[1px] bg-gray-100 dark:bg-white/5 my-4 mx-4"></div>
-        <router-link to="/dashboard" class="menu-item" :class="{ 'active': activeMenu === '/dashboard' || activeMenu === '/', 'justify-center !px-0': isCollapsed }">
-          <div class="flex items-center justify-center w-6 h-6 shrink-0"><LayoutDashboard :size="20" /></div>
-          <span v-show="!isCollapsed" class="font-medium whitespace-nowrap">Dashboard</span>
-        </router-link>
+        <template v-if="auth.hasPermission('Dashboard.View')">
+          <p v-show="!isCollapsed" class="px-3 text-xs font-bold text-gray-400 mb-2 mt-4 transition-all">OVERVIEW</p>
+          <div v-show="isCollapsed" class="h-[1px] bg-gray-100 dark:bg-white/5 my-4 mx-4"></div>
+          <router-link to="/dashboard" class="menu-item" :class="{ 'active': activeMenu === '/dashboard' || activeMenu === '/', 'justify-center !px-0': isCollapsed }">
+            <div class="flex items-center justify-center w-6 h-6 shrink-0"><LayoutDashboard :size="20" /></div>
+            <span v-show="!isCollapsed" class="font-medium whitespace-nowrap">Dashboard</span>
+          </router-link>
+        </template>
 
         <!-- PEOPLE -->
         <p v-show="!isCollapsed" class="px-3 text-xs font-bold text-gray-400 mb-2 mt-6 transition-all">PEOPLE</p>
@@ -76,7 +86,7 @@ async function handleCommand(command) {
           <div class="flex items-center justify-center w-6 h-6 shrink-0"><Users :size="20" /></div>
           <span v-show="!isCollapsed" class="font-medium whitespace-nowrap">Students</span>
         </router-link>
-        <router-link v-if="auth.role === 'Admin'" to="/giao-vien" class="menu-item" :class="{ 'active': activeMenu.includes('/giao-vien'), 'justify-center !px-0': isCollapsed }">
+        <router-link v-if="auth.hasPermission('Teachers.View')" to="/giao-vien" class="menu-item" :class="{ 'active': activeMenu.includes('/giao-vien'), 'justify-center !px-0': isCollapsed }">
           <div class="flex items-center justify-center w-6 h-6 shrink-0"><UserSquare :size="20" /></div>
           <span v-show="!isCollapsed" class="font-medium whitespace-nowrap">Teachers</span>
         </router-link>
@@ -84,21 +94,21 @@ async function handleCommand(command) {
         <!-- ACADEMIC -->
         <p v-show="!isCollapsed" class="px-3 text-xs font-bold text-gray-400 mb-2 mt-6 transition-all">ACADEMIC</p>
         <div v-show="isCollapsed" class="h-[1px] bg-gray-100 dark:bg-white/5 my-4 mx-4"></div>
-        <router-link to="/lop-hoc" class="menu-item" :class="{ 'active': activeMenu.includes('/lop-hoc'), 'justify-center !px-0': isCollapsed }">
+        <router-link v-if="auth.isAdmin || auth.isBGH || auth.isTeacher" to="/lop-hoc" class="menu-item" :class="{ 'active': activeMenu.includes('/lop-hoc'), 'justify-center !px-0': isCollapsed }">
           <div class="flex items-center justify-center w-6 h-6 shrink-0"><BookOpen :size="20" /></div>
           <span v-show="!isCollapsed" class="font-medium whitespace-nowrap">Classes</span>
         </router-link>
-        <router-link to="/lich-hoc" class="menu-item" :class="{ 'active': activeMenu.includes('/lich-hoc'), 'justify-center !px-0': isCollapsed }">
+        <router-link v-if="auth.isAdmin || auth.isBGH || auth.isTeacher" to="/lich-hoc" class="menu-item" :class="{ 'active': activeMenu.includes('/lich-hoc'), 'justify-center !px-0': isCollapsed }">
           <div class="flex items-center justify-center w-6 h-6 shrink-0"><Calendar :size="20" /></div>
           <span v-show="!isCollapsed" class="font-medium whitespace-nowrap">Schedule</span>
         </router-link>
-        <router-link to="/diem-so" class="menu-item" :class="{ 'active': activeMenu.includes('/diem-so'), 'justify-center !px-0': isCollapsed }">
+        <router-link v-if="auth.hasPermission('Scores.View')" to="/diem-so" class="menu-item" :class="{ 'active': activeMenu.includes('/diem-so'), 'justify-center !px-0': isCollapsed }">
           <div class="flex items-center justify-center w-6 h-6 shrink-0"><FileBarChart :size="20" /></div>
           <span v-show="!isCollapsed" class="font-medium whitespace-nowrap">Grades</span>
         </router-link>
 
         <!-- FINANCE -->
-        <template v-if="auth.role === 'Admin'">
+        <template v-if="auth.hasPermission('Finance.View')">
           <p v-show="!isCollapsed" class="px-3 text-xs font-bold text-gray-400 mb-2 mt-6 transition-all">FINANCE</p>
           <div v-show="isCollapsed" class="h-[1px] bg-gray-100 dark:bg-white/5 my-4 mx-4"></div>
           <router-link to="/hoc-phi" class="menu-item" :class="{ 'active': activeMenu.includes('/hoc-phi'), 'justify-center !px-0': isCollapsed }">
@@ -108,16 +118,18 @@ async function handleCommand(command) {
         </template>
 
         <!-- DECISION SUPPORT (DSS) -->
-        <p v-show="!isCollapsed" class="px-3 text-xs font-bold text-gray-400 mb-2 mt-6 transition-all">ANALYTICS (DSS)</p>
-        <div v-show="isCollapsed" class="h-[1px] bg-gray-100 dark:bg-white/5 my-4 mx-4"></div>
-        <router-link to="/dss/what-if" class="menu-item" :class="{ 'active': activeMenu.includes('/dss/what-if'), 'justify-center !px-0': isCollapsed }">
-          <div class="flex items-center justify-center w-6 h-6 shrink-0"><Calculator :size="20" /></div>
-          <span v-show="!isCollapsed" class="font-medium whitespace-nowrap">What-If Analysis</span>
-        </router-link>
-        <router-link to="/dss/canh-bao" class="menu-item" :class="{ 'active': activeMenu.includes('/dss/canh-bao'), 'justify-center !px-0': isCollapsed }">
-          <div class="flex items-center justify-center w-6 h-6 shrink-0"><Navigation :size="20" /></div>
-          <span v-show="!isCollapsed" class="font-medium whitespace-nowrap">Early Warning</span>
-        </router-link>
+        <template v-if="auth.hasPermission('Scores.View') || auth.hasPermission('Scores.Edit')">
+          <p v-show="!isCollapsed" class="px-3 text-xs font-bold text-gray-400 mb-2 mt-6 transition-all">ANALYTICS (DSS)</p>
+          <div v-show="isCollapsed" class="h-[1px] bg-gray-100 dark:bg-white/5 my-4 mx-4"></div>
+          <router-link v-if="auth.hasPermission('Scores.Edit')" to="/dss/what-if" class="menu-item" :class="{ 'active': activeMenu.includes('/dss/what-if'), 'justify-center !px-0': isCollapsed }">
+            <div class="flex items-center justify-center w-6 h-6 shrink-0"><Calculator :size="20" /></div>
+            <span v-show="!isCollapsed" class="font-medium whitespace-nowrap">What-If Analysis</span>
+          </router-link>
+          <router-link v-if="auth.hasPermission('Scores.View')" to="/dss/canh-bao" class="menu-item" :class="{ 'active': activeMenu.includes('/dss/canh-bao'), 'justify-center !px-0': isCollapsed }">
+            <div class="flex items-center justify-center w-6 h-6 shrink-0"><Navigation :size="20" /></div>
+            <span v-show="!isCollapsed" class="font-medium whitespace-nowrap">Early Warning</span>
+          </router-link>
+        </template>
 
         <!-- SYSTEM -->
         <p v-show="!isCollapsed" class="px-3 text-xs font-bold text-gray-400 mb-2 mt-6 transition-all">SYSTEM</p>
@@ -215,15 +227,15 @@ async function handleCommand(command) {
           <el-dropdown @command="handleCommand" trigger="click">
             <div class="flex items-center gap-3 cursor-pointer select-none">
               <div class="text-right hidden sm:block">
-                <p class="text-sm font-bold text-[#2B3674] dark:text-white leading-tight">{{ auth.username === 'admin' ? 'John Harrison' : auth.username }}</p>
-                <p class="text-xs text-gray-400 dark:text-gray-400">{{ auth.role === 'Admin' ? 'Administrator' : 'Teacher' }}</p>
+                <p class="text-sm font-bold text-[#2B3674] dark:text-white leading-tight">{{ auth.username }}</p>
+                <p class="text-xs text-gray-400 dark:text-gray-400">{{ auth.roleLabel }}</p>
               </div>
               <el-avatar :size="38" src="https://i.pravatar.cc/150?img=11" />
             </div>
             <template #dropdown>
               <el-dropdown-menu class="dark:bg-[#111C44] dark:border-white/10">
-                <el-dropdown-item>Profile</el-dropdown-item>
-                <el-dropdown-item>Settings</el-dropdown-item>
+                <el-dropdown-item command="profile">Hồ sơ cá nhân</el-dropdown-item>
+                <el-dropdown-item command="settings">Cài đặt</el-dropdown-item>
                 <el-dropdown-item divided command="logout" class="text-red-500">
                   <div class="flex items-center gap-2">
                     <LogOut :size="16" />

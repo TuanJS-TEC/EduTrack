@@ -1,7 +1,21 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Users, BookOpen, UserSquare, DollarSign, ArrowUpRight, Calendar, RefreshCw } from 'lucide-vue-next'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { Users, BookOpen, UserSquare, TrendingUp, ArrowUpRight, Calendar, RefreshCw, ChevronDown } from 'lucide-vue-next'
 import { apiService } from '../services/api'
+import { useAuthStore } from '../stores/auth'
+
+const router = useRouter()
+const auth = useAuthStore()
+
+/** Phím tắt dashboard → đúng route; nút tắt nếu không đủ quyền (trùng meta router). */
+const canQuickHocSinh = computed(() => auth.hasPermission('Students.View'))
+const canQuickGiaoVien = computed(() => auth.hasPermission('Teachers.View'))
+const canQuickLopLich = computed(() => auth.isAdmin || auth.isBGH || auth.isTeacher)
+
+function goQuick(path) {
+  router.push(path)
+}
 
 // ── ECharts ──────────────────────────────────────────────────────────
 import VChart from 'vue-echarts'
@@ -19,6 +33,27 @@ use([
   GridComponent, DatasetComponent
 ])
 
+// ── Kỳ học & Năm học động ─────────────────────────────────────────────
+/** Năm học detect từ dữ liệu LopHoc thực tế (không hardcode). */
+const namHoc = ref('2025-2026')
+const selectedHocKy = ref(1)
+const loadingMeta = ref(false)
+
+const fetchNamHoc = async () => {
+  loadingMeta.value = true
+  try {
+    const res = await apiService.getLopHocs()
+    const lops = res.data ?? []
+    if (lops.length > 0 && lops[0].NamHoc) {
+      namHoc.value = lops[0].NamHoc
+    }
+  } catch (e) {
+    console.warn('Không lấy được năm học từ lớp, dùng mặc định:', e)
+  } finally {
+    loadingMeta.value = false
+  }
+}
+
 // ── Dữ liệu từ API ───────────────────────────────────────────────────
 const hocLuc = ref(null)
 const loadingChart = ref(false)
@@ -26,7 +61,7 @@ const loadingChart = ref(false)
 const fetchDashboard = async () => {
   loadingChart.value = true
   try {
-    const res = await apiService.getDssThongKeHocLuc(1, '2025-2026')
+    const res = await apiService.getDssThongKeHocLuc(selectedHocKy.value, namHoc.value)
     hocLuc.value = res.data
   } catch (e) {
     console.error('Lỗi tải dashboard học lực:', e)
@@ -35,7 +70,16 @@ const fetchDashboard = async () => {
   }
 }
 
-onMounted(fetchDashboard)
+/** Label kỳ học hiện tại hiển thị trên UI */
+const kyHocLabel = computed(() => `Học kỳ ${selectedHocKy.value} · Năm học ${namHoc.value}`)
+
+onMounted(async () => {
+  await fetchNamHoc()
+  await fetchDashboard()
+})
+
+/** Khi đổi kỳ → tự reload chart */
+watch(selectedHocKy, fetchDashboard)
 
 // ── ECharts options ───────────────────────────────────────────────────
 // Biểu đồ Tròn: Phân bố xếp loại
@@ -96,7 +140,7 @@ const barOption = computed(() => {
         return `<b>${p.name}</b><br/>Điểm TB: <b style="color:#60a5fa">${p.value ?? 'N/A'}</b>`
       }
     },
-    grid: { left: 16, right: 16, top: 20, bottom: 20, containLabel: true },
+    grid: { left: 16, right: 16, top: 20, bottom: 36 },
     xAxis: {
       type: 'category',
       data: lops.map(l => l.TenLop),
@@ -114,12 +158,14 @@ const barOption = computed(() => {
     series: [{
       type: 'bar',
       data: lops.map(l => ({
-        value: l.TbChung !== null ? Number(l.TbChung).toFixed(1) : null,
+        value: l.TbChung != null && l.TbChung !== undefined ? Number(Number(l.TbChung).toFixed(1)) : null,
         itemStyle: {
-          color: l.TbChung >= 8 ? '#22c55e'
-               : l.TbChung >= 6.5 ? '#3b82f6'
-               : l.TbChung >= 5 ? '#f59e0b'
-               : '#ef4444',
+          color: l.TbChung == null || l.TbChung === undefined
+            ? '#cbd5e1'
+            : l.TbChung >= 8 ? '#22c55e'
+              : l.TbChung >= 6.5 ? '#3b82f6'
+                : l.TbChung >= 5 ? '#f59e0b'
+                  : '#ef4444',
           borderRadius: [6, 6, 0, 0]
         }
       })),
@@ -127,7 +173,7 @@ const barOption = computed(() => {
       label: {
         show: true,
         position: 'top',
-        formatter: (p) => p.value ?? '-',
+        formatter: (p) => (p.value != null && p.value !== '' ? p.value : '—'),
         color: '#475569',
         fontWeight: 'bold',
         fontSize: 11
@@ -139,6 +185,7 @@ const barOption = computed(() => {
 // Stats tổng hợp
 const stats = computed(() => {
   const d = hocLuc.value
+  const total = d?.TongHocSinh ?? 0
   return [
     {
       id: 1, title: 'TỔNG HỌC SINH',
@@ -149,7 +196,7 @@ const stats = computed(() => {
     {
       id: 2, title: 'HỌC SINH GIỎI',
       value: d ? d.Gioi.toString() : '—',
-      trend: d ? `${d.TongHocSinh > 0 ? Math.round(d.Gioi*100/d.TongHocSinh) : 0}% tổng số` : '...',
+      trend: d ? `${total > 0 ? Math.round(d.Gioi * 100 / total) : 0}% tổng số` : '...',
       trendUp: true, icon: BookOpen, iconBg: 'bg-teal-50 text-teal-500',
     },
     {
@@ -159,14 +206,15 @@ const stats = computed(() => {
       trendUp: !(d && (d.Yeu + d.Kem) > 0), icon: UserSquare, iconBg: 'bg-red-50 text-red-400',
     },
     {
-      id: 4, title: 'TRUNG BÌNH',
-      value: d ? d.TrungBinh.toString() : '—',
-      trend: d ? `${d.TongHocSinh > 0 ? Math.round(d.TrungBinh*100/d.TongHocSinh) : 0}% tổng số` : '...',
-      trendUp: true, icon: DollarSign, iconBg: 'bg-orange-50 text-orange-500',
-    }
+      id: 4, title: 'HỌC SINH KHÁ',
+      value: d ? d.Kha.toString() : '—',
+      trend: d ? `${total > 0 ? Math.round(d.Kha * 100 / total) : 0}% tổng số` : '...',
+      trendUp: true, icon: TrendingUp, iconBg: 'bg-indigo-50 text-indigo-500',
+    },
   ]
 })
 </script>
+
 
 <template>
   <div class="space-y-6">
@@ -200,12 +248,27 @@ const stats = computed(() => {
         <div class="flex justify-between items-start mb-4">
           <div>
             <h3 class="text-lg font-bold text-[#2B3674] dark:text-white">Điểm Trung Bình Theo Lớp</h3>
-            <p class="text-sm text-gray-400 dark:text-gray-400">Học kỳ 1 · Năm học 2025-2026</p>
+            <p class="text-sm text-gray-400 dark:text-gray-400">{{ kyHocLabel }}</p>
           </div>
-          <button @click="fetchDashboard"
-            class="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
-            <RefreshCw :size="16" :class="{'animate-spin text-blue-500': loadingChart}" />
-          </button>
+          <div class="flex items-center gap-2">
+            <!-- Selector kỳ học -->
+            <div class="flex rounded-lg border border-gray-200 dark:border-white/10 overflow-hidden text-xs font-bold">
+              <button
+                v-for="ky in [1, 2]" :key="ky"
+                @click="selectedHocKy = ky"
+                :class="[
+                  'px-3 py-1.5 transition-colors',
+                  selectedHocKy === ky
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-white dark:bg-[#0B1437] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'
+                ]"
+              >HK{{ ky }}</button>
+            </div>
+            <button @click="fetchDashboard"
+              class="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
+              <RefreshCw :size="16" :class="{'animate-spin text-blue-500': loadingChart}" />
+            </button>
+          </div>
         </div>
 
         <!-- Loading -->
@@ -259,7 +322,7 @@ const stats = computed(() => {
 
       <!-- Summary học lực -->
       <div v-if="hocLuc" class="bg-white dark:bg-[#111C44] rounded-2xl p-6 shadow-sm border border-gray-100/50 dark:border-white/5 lg:col-span-2">
-        <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Chi tiết xếp loại · HK1</h3>
+        <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Chi tiết xếp loại · HK{{ selectedHocKy }} · {{ namHoc }}</h3>
         <div class="grid grid-cols-5 gap-3">
           <div v-for="item in [
             { label: 'Giỏi', value: hocLuc.Gioi, color: 'bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/30' },
@@ -282,19 +345,43 @@ const stats = computed(() => {
           <span class="text-xs text-gray-400 dark:text-gray-400">4 shortcuts</span>
         </div>
         <div class="grid grid-cols-2 gap-3">
-          <button class="flex flex-col items-center justify-center p-4 border border-blue-100 dark:border-blue-500/10 bg-blue-50/50 dark:bg-blue-500/5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors text-center group">
+          <button
+            type="button"
+            :disabled="!canQuickHocSinh"
+            class="flex flex-col items-center justify-center p-4 border border-blue-100 dark:border-blue-500/10 bg-blue-50/50 dark:bg-blue-500/5 rounded-xl text-center group transition-colors"
+            :class="canQuickHocSinh ? 'hover:bg-blue-50 dark:hover:bg-blue-500/10 cursor-pointer' : 'opacity-40 cursor-not-allowed'"
+            @click="canQuickHocSinh && goQuick('/hoc-sinh')"
+          >
             <Users :size="20" class="text-blue-500 dark:text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
             <span class="text-xs font-bold text-[#2B3674] dark:text-gray-200">Học Sinh</span>
           </button>
-          <button class="flex flex-col items-center justify-center p-4 border border-teal-100 dark:border-teal-500/10 bg-teal-50/50 dark:bg-teal-500/5 rounded-xl hover:bg-teal-50 dark:hover:bg-teal-500/10 transition-colors text-center group">
+          <button
+            type="button"
+            :disabled="!canQuickGiaoVien"
+            class="flex flex-col items-center justify-center p-4 border border-teal-100 dark:border-teal-500/10 bg-teal-50/50 dark:bg-teal-500/5 rounded-xl text-center group transition-colors"
+            :class="canQuickGiaoVien ? 'hover:bg-teal-50 dark:hover:bg-teal-500/10 cursor-pointer' : 'opacity-40 cursor-not-allowed'"
+            @click="canQuickGiaoVien && goQuick('/giao-vien')"
+          >
             <UserSquare :size="20" class="text-teal-500 dark:text-teal-400 mb-2 group-hover:scale-110 transition-transform" />
             <span class="text-xs font-bold text-[#2B3674] dark:text-gray-200">Giáo Viên</span>
           </button>
-          <button class="flex flex-col items-center justify-center p-4 border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/50 dark:bg-indigo-500/5 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors text-center group">
+          <button
+            type="button"
+            :disabled="!canQuickLopLich"
+            class="flex flex-col items-center justify-center p-4 border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/50 dark:bg-indigo-500/5 rounded-xl text-center group transition-colors"
+            :class="canQuickLopLich ? 'hover:bg-indigo-50 dark:hover:bg-indigo-500/10 cursor-pointer' : 'opacity-40 cursor-not-allowed'"
+            @click="canQuickLopLich && goQuick('/lop-hoc')"
+          >
             <BookOpen :size="20" class="text-indigo-500 dark:text-indigo-400 mb-2 group-hover:scale-110 transition-transform" />
             <span class="text-xs font-bold text-[#2B3674] dark:text-gray-200">Lớp Học</span>
           </button>
-          <button class="flex flex-col items-center justify-center p-4 border border-purple-100 dark:border-purple-500/10 bg-purple-50/50 dark:bg-purple-500/5 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-colors text-center group">
+          <button
+            type="button"
+            :disabled="!canQuickLopLich"
+            class="flex flex-col items-center justify-center p-4 border border-purple-100 dark:border-purple-500/10 bg-purple-50/50 dark:bg-purple-500/5 rounded-xl text-center group transition-colors"
+            :class="canQuickLopLich ? 'hover:bg-purple-50 dark:hover:bg-purple-500/10 cursor-pointer' : 'opacity-40 cursor-not-allowed'"
+            @click="canQuickLopLich && goQuick('/lich-hoc')"
+          >
             <Calendar :size="20" class="text-purple-500 dark:text-purple-400 mb-2 group-hover:scale-110 transition-transform" />
             <span class="text-xs font-bold text-[#2B3674] dark:text-gray-200">Lịch Học</span>
           </button>

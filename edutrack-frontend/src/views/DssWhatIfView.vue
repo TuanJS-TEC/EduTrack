@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { Calculator, Target, ArrowRight, UserSquare, BookOpen, AlertTriangle, CheckCircle, TrendingUp, Hash, Info, RefreshCw } from 'lucide-vue-next'
+import { ElMessage } from 'element-plus'
 import { apiService } from '../services/api'
 
 // Initial data
@@ -36,6 +37,12 @@ const result = ref({
 })
 
 const debounceTimeout = ref(null)
+
+/** Năm học của lớp đang chọn — khớp DiemSo.NamHoc trên API */
+const selectedNamHoc = computed(() => {
+  const c = classes.value.find((x) => x.MaLop === form.value.classId)
+  return c?.NamHoc || '2025-2026'
+})
 
 // Methods to load dropdowns
 const initOptions = async () => {
@@ -88,33 +95,43 @@ watch(() => form.value.classId, (newId) => {
 // Trigger calculation
 const calculateWhatIf = async () => {
   if (!form.value.studentId || !form.value.subjectId) return
+  const hyp = Number(form.value.hypotheticalFinal)
+  const tgt = Number(form.value.targetAverage)
+  if (Number.isNaN(hyp) || Number.isNaN(tgt)) {
+    ElMessage.warning('Tham số điểm không hợp lệ.')
+    return
+  }
   calculating.value = true
   try {
     const payload = {
       maHS: form.value.studentId,
       maMon: form.value.subjectId,
+      namHoc: selectedNamHoc.value,
       hocKy: form.value.term,
-      diemCuoiKyGiaDinh: parseFloat(form.hypotheticalFinal),
-      targetTb: parseFloat(form.targetAverage)
+      diemCuoiKyGiaDinh: hyp,
+      targetTb: tgt,
     }
     const res = await apiService.postDssWhatIf(payload)
-    const data = res.data
+    // API dùng PascalCase (PropertyNamingPolicy = null)
+    const d = res.data
 
     currentGrades.value = {
-      oral: data.diemMieng,
-      quiz15: data.diem15p,
-      midterm: data.diemGiuaKy,
-      final: data.diemCuoiKyHienTai
-    }
-    
-    result.value = {
-      predictedAverage: data.tbGiaDinh !== null ? parseFloat(data.tbGiaDinh).toFixed(1) : '-',
-      classification: data.xepLoaiGiaDinh || 'Chưa XL',
-      requiredFinalScore: data.ckCanThietDeDatTarget
+      oral: d.DiemMieng ?? null,
+      quiz15: d.Diem15p ?? null,
+      midterm: d.DiemGiuaKy ?? null,
+      final: d.DiemCuoiKyHienTai ?? null,
     }
 
+    const ck = d.CkCanThietDeDatTarget
+    result.value = {
+      predictedAverage: d.TbGiaDinh != null ? Number(d.TbGiaDinh).toFixed(1) : '-',
+      classification: d.XepLoaiGiaDinh || 'Chưa XL',
+      requiredFinalScore: ck != null && !Number.isNaN(Number(ck)) ? Number(ck) : 0,
+    }
   } catch (error) {
-    console.error("Lỗi tính toán WhatIf:", error)
+    console.error('Lỗi tính toán WhatIf:', error)
+    const msg = error?.response?.data?.message || error?.response?.data?.title || 'Không gọi được API What-If (kiểm tra quyền Scores.Edit và dữ liệu điểm).'
+    ElMessage.error(typeof msg === 'string' ? msg : 'Lỗi tính toán What-If.')
   } finally {
     calculating.value = false
   }
@@ -122,21 +139,22 @@ const calculateWhatIf = async () => {
 
 // Watch input changes (debounce for ranges)
 watch([() => form.value.targetAverage, () => form.value.hypotheticalFinal], () => {
+  if (!form.value.studentId || !form.value.subjectId) return
   if (debounceTimeout.value) clearTimeout(debounceTimeout.value)
   debounceTimeout.value = setTimeout(() => {
     calculateWhatIf()
-  }, 300) // 300ms debounce
+  }, 300)
 })
 
-// Immediately run when dropdowns change
-watch([() => form.value.studentId, () => form.value.subjectId, () => form.value.term], () => {
-  if (form.value.studentId && form.value.subjectId) {
-    calculateWhatIf()
-  }
+// Khi đổi HS/môn/kỳ/năm học (theo lớp) — tính lại ngay
+watch([() => form.value.studentId, () => form.value.subjectId, () => form.value.term, selectedNamHoc], () => {
+  if (form.value.studentId && form.value.subjectId) calculateWhatIf()
 })
 
 onMounted(() => {
-  initOptions()
+  initOptions().then(() => {
+    if (form.value.studentId && form.value.subjectId) calculateWhatIf()
+  })
 })
 
 // UI Helpers

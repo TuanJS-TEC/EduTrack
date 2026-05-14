@@ -40,4 +40,6 @@ public static class AppPolicies
     public const string CanViewDashboard = nameof(CanViewDashboard);
     public const string CanViewReports = nameof(CanViewReports);
     public const string CanViewTeachers = nameof(CanViewTeachers);
+    /// <summary>Thêm/sửa/xóa hồ sơ giáo viên (Admin, BGH).</summary>
+    public const string CanManageTeachers = nameof(CanManageTeachers);
 }

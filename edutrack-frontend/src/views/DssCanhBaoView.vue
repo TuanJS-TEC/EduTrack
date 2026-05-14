@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { AlertCircle, AlertTriangle, ShieldCheck, Download, Search, Navigation, RefreshCw } from 'lucide-vue-next'
+import { ElMessage } from 'element-plus'
+import * as XLSX from 'xlsx'
 import { apiService } from '../services/api'
 
 // ── ECharts ──────────────────────────────────────────────────────────
@@ -76,6 +78,44 @@ const totalRed    = computed(() => students.value.filter(s => s.riskLevel === 'D
 const totalYellow = computed(() => students.value.filter(s => s.riskLevel === 'Vang').length)
 const totalSafe   = computed(() => students.value.filter(s => s.riskLevel === 'Xanh').length)
 
+function riskLabel(level) {
+  if (level === 'Do') return 'Đỏ (nguy cơ cao)'
+  if (level === 'Vang') return 'Vàng (lưu ý)'
+  if (level === 'Xanh') return 'Xanh (an toàn)'
+  return level || ''
+}
+
+/** Xuất danh sách đang lọc (chỉ Đỏ + Vàng — giống bảng hiển thị). */
+function exportRiskList() {
+  const list = atRiskStudents.value
+  if (!list.length) {
+    ElMessage.warning('Không có bản ghi cảnh báo (Đỏ/Vàng) để xuất. Thử đổi học kỳ hoặc lớp.')
+    return
+  }
+
+  const rows = list.map((s) => ({
+    MaHS: s.id,
+    HoTen: s.name,
+    Lop: s.classId,
+    MonHoc: s.subject,
+    DiemMieng: s.diemMieng ?? '',
+    Diem15p: s.diem15p ?? '',
+    DiemGiuaKy: s.diemGiuaKy ?? '',
+    QuaTrinhTB: s.currentAvg != null ? Number(s.currentAvg).toFixed(1) : '',
+    CuoiKyCan: s.requiredFinal > 10 ? 'N/A' : Number(s.requiredFinal).toFixed(1),
+    MucDo: riskLabel(s.riskLevel),
+  }))
+
+  const ws = XLSX.utils.json_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Canh bao')
+
+  const lopPart = classFilter.value === 'All' ? 'ToanTruong' : classFilter.value.replace(/[^a-zA-Z0-9-_]/g, '_')
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+  XLSX.writeFile(wb, `CanhBaoHocTap_HK${termFilter.value}_${lopPart}_${stamp}.xlsx`)
+  ElMessage.success(`Đã xuất ${list.length} dòng`)
+}
+
 // ── ECharts: Bar chart rủi ro theo lớp ───────────────────────────────
 const barOption = computed(() => {
   if (!students.value.length) return {}
@@ -102,7 +142,7 @@ const barOption = computed(() => {
       textStyle: { color: '#94a3b8', fontSize: 11, fontWeight: 'bold' },
       itemWidth: 10, itemHeight: 10,
     },
-    grid: { left: 12, right: 12, top: 12, bottom: 40, containLabel: true },
+    grid: { left: 12, right: 12, top: 12, bottom: 48 },
     xAxis: {
       type: 'category',
       data: lopList,
@@ -161,7 +201,9 @@ onMounted(async () => {
         </h2>
         <p class="text-sm text-gray-400">Hệ thống Phát hiện sớm (Early Warning System) — tính trực tiếp từ bảng điểm.</p>
       </div>
-      <button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#111C44] border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-bold shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+      <button type="button"
+        class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#111C44] border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-bold shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+        @click="exportRiskList">
         <Download :size="16" /> Xuất Danh Sách
       </button>
     </div>

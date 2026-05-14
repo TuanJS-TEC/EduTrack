@@ -13,7 +13,9 @@ namespace EduTrack.API.Controllers;
 [Authorize]
 public sealed class ThongBaoController(
     EduTrackDbContext db,
-    INotificationRealtimeService realtime) : ControllerBase
+    INotificationRealtimeService realtime,
+    ICurrentUserService current,
+    IAccessControlService access) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<ThongBao>>> GetAll(
@@ -23,6 +25,12 @@ public sealed class ThongBaoController(
         CancellationToken ct = default)
     {
         var q = db.ThongBaos.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrEmpty(current.UserId) && User.IsInRole(RolePermissionSeeder.Parent))
+        {
+            var codes = await access.GetParentStudentCodesAsync(current.UserId!, ct);
+            q = q.Where(x => x.MaHS == null || codes.Contains(x.MaHS));
+        }
+
         if (!string.IsNullOrWhiteSpace(maHS)) q = q.Where(x => x.MaHS == maHS);
         if (!string.IsNullOrWhiteSpace(loaiTB)) q = q.Where(x => x.LoaiTB == loaiTB);
         if (daDoc.HasValue) q = q.Where(x => x.DaDoc == daDoc.Value);
@@ -33,7 +41,14 @@ public sealed class ThongBaoController(
     public async Task<ActionResult<ThongBao>> GetById([FromRoute] int maTB, CancellationToken ct = default)
     {
         var item = await db.ThongBaos.AsNoTracking().FirstOrDefaultAsync(x => x.MaTB == maTB, ct);
-        return item is null ? NotFound() : Ok(item);
+        if (item is null) return NotFound();
+        if (!string.IsNullOrEmpty(current.UserId) && User.IsInRole(RolePermissionSeeder.Parent) && item.MaHS is not null)
+        {
+            if (!await access.CanViewStudentAsync(current.UserId!, item.MaHS, ct))
+                return NotFound();
+        }
+
+        return Ok(item);
     }
 
     [HttpPost]
@@ -75,6 +90,11 @@ public sealed class ThongBaoController(
     {
         var item = await db.ThongBaos.FirstOrDefaultAsync(x => x.MaTB == maTB, ct);
         if (item is null) return NotFound();
+        if (!string.IsNullOrEmpty(current.UserId) && User.IsInRole(RolePermissionSeeder.Parent) && item.MaHS is not null)
+        {
+            if (!await access.CanViewStudentAsync(current.UserId!, item.MaHS, ct))
+                return NotFound();
+        }
 
         if (!item.DaDoc)
         {

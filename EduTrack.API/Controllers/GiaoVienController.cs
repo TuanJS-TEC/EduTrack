@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using EduTrack.API.Authorization;
 using EduTrack.API.Data;
 using EduTrack.API.Models;
@@ -12,6 +13,34 @@ namespace EduTrack.API.Controllers;
 [Authorize]
 public sealed class GiaoVienController(EduTrackDbContext db) : ControllerBase
 {
+    /// <summary>Danh sách GV cho dropdown TKB: Admin/BGH/Kế toán hoặc có Teachers.View = toàn bộ; GV = chỉ bản thân; PH = rỗng.</summary>
+    [HttpGet("for-schedule")]
+    [Authorize(Policy = AppPolicies.CanViewStudents)]
+    public async Task<ActionResult<List<GiaoVien>>> ForSchedulePicker(CancellationToken ct)
+    {
+        if (User.IsInRole(RolePermissionSeeder.Admin) ||
+            User.IsInRole(RolePermissionSeeder.Bgh) ||
+            User.IsInRole(RolePermissionSeeder.Accountant) ||
+            User.HasClaim("permission", AppPermissions.TeachersView))
+        {
+            return Ok(await db.GiaoViens.AsNoTracking().OrderBy(x => x.HoTen).ToListAsync(ct));
+        }
+
+        if (User.IsInRole(RolePermissionSeeder.Parent))
+            return Ok(new List<GiaoVien>());
+
+        if (User.IsInRole(RolePermissionSeeder.Teacher))
+        {
+            var my = User.FindFirstValue("ma_gv");
+            if (string.IsNullOrEmpty(my))
+                return Ok(new List<GiaoVien>());
+            var self = await db.GiaoViens.AsNoTracking().FirstOrDefaultAsync(x => x.MaGV == my, ct);
+            return Ok(self is null ? new List<GiaoVien>() : new List<GiaoVien> { self });
+        }
+
+        return Ok(new List<GiaoVien>());
+    }
+
     [HttpGet]
     [Authorize(Policy = AppPolicies.CanViewTeachers)]
     public async Task<ActionResult<List<GiaoVien>>> GetAll()
@@ -28,7 +57,7 @@ public sealed class GiaoVienController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
+    [Authorize(Policy = AppPolicies.CanManageTeachers)]
     public async Task<ActionResult> Create([FromBody] GiaoVien input)
     {
         if (await db.GiaoViens.AnyAsync(x => x.MaGV == input.MaGV))
@@ -40,7 +69,7 @@ public sealed class GiaoVienController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpPut("{maGV}")]
-    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
+    [Authorize(Policy = AppPolicies.CanManageTeachers)]
     public async Task<ActionResult> Update([FromRoute] string maGV, [FromBody] GiaoVien input)
     {
         var item = await db.GiaoViens.FirstOrDefaultAsync(x => x.MaGV == maGV);
@@ -56,7 +85,7 @@ public sealed class GiaoVienController(EduTrackDbContext db) : ControllerBase
     }
 
     [HttpDelete("{maGV}")]
-    [Authorize(Policy = AppPolicies.CanConfigureSystem)]
+    [Authorize(Policy = AppPolicies.CanManageTeachers)]
     public async Task<ActionResult> Delete([FromRoute] string maGV)
     {
         var item = await db.GiaoViens.FirstOrDefaultAsync(x => x.MaGV == maGV);
