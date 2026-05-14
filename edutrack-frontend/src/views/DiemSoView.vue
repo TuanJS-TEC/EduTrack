@@ -2,6 +2,10 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Download, Upload, Search, Filter, Hash, User, Bookmark, RefreshCcw, Save } from 'lucide-vue-next'
 import { apiService } from '../services/api'
+import { useAuthStore } from '../stores/auth'
+
+const auth = useAuthStore()
+const canEditScores = computed(() => auth.hasPermission('Scores.Edit'))
 
 // Filter states
 const search = ref('')
@@ -12,6 +16,11 @@ const termFilter = ref(1) // 1 hoặc 2
 // Dropdown data
 const classes = ref([])
 const subjects = ref([])
+
+const selectedNamHoc = computed(() => {
+  const c = classes.value.find((x) => x.MaLop === classFilter.value)
+  return c?.NamHoc || '2025-2026'
+})
 
 // Table Data
 const reportCards = ref([])
@@ -24,10 +33,26 @@ const initFilters = async () => {
   try {
     const [classRes, subRes] = await Promise.all([
       apiService.getLopHocs(),
-      apiService.getMonHocs()
+      apiService.getMonHocs(),
     ])
-    classes.value = classRes.data
+    let classList = classRes.data
     subjects.value = subRes.data
+
+    // Phụ huynh: chỉ hiển thị lớp có con được liên kết (API /hocsinh đã lọc theo PH)
+    if (auth.isParent) {
+      try {
+        const hsRes = await apiService.getHocSinhs()
+        const allowed = [...new Set((hsRes.data || []).map((s) => s.MaLop).filter(Boolean))]
+        if (allowed.length > 0) {
+          const filtered = classList.filter((c) => allowed.includes(c.MaLop))
+          if (filtered.length > 0) classList = filtered
+        }
+      } catch (e) {
+        console.error('Không tải được danh sách học sinh (phụ huynh):', e)
+      }
+    }
+
+    classes.value = classList
 
     if (classes.value.length > 0) classFilter.value = classes.value[0].MaLop
     if (subjects.value.length > 0) subjectFilter.value = subjects.value[0].MaMon
@@ -36,7 +61,7 @@ const initFilters = async () => {
       await fetchBangDiem()
     }
   } catch (error) {
-    console.error("Lỗi tải filters:", error)
+    console.error('Lỗi tải filters:', error)
   }
 }
 
@@ -45,19 +70,25 @@ const fetchBangDiem = async () => {
   if (!classFilter.value || !subjectFilter.value) return
   loading.value = true
   try {
-    const res = await apiService.getBangDiem(classFilter.value, subjectFilter.value, termFilter.value)
+    const res = await apiService.getBangDiem(
+      classFilter.value,
+      subjectFilter.value,
+      termFilter.value,
+      selectedNamHoc.value,
+    )
     // deep clone so we can track changes
-    reportCards.value = res.data.map(item => ({ ...item }))
+    reportCards.value = res.data.map((item) => ({ ...item }))
     updateCache.value = {}
   } catch (error) {
-    console.error("Lỗi lấy Bảng điểm:", error)
+    console.error('Lỗi lấy Bảng điểm:', error)
+    reportCards.value = []
   } finally {
     loading.value = false
   }
 }
 
 // Re-fetch when filter changes
-watch([classFilter, subjectFilter, termFilter], () => {
+watch([classFilter, subjectFilter, termFilter, selectedNamHoc], () => {
   fetchBangDiem()
 })
 
@@ -101,11 +132,13 @@ const getInitials = (name) => {
 
 // Mark student row as dirty when user edits
 const markDirty = (student) => {
+  if (!canEditScores.value) return
   updateCache.value[student.MaHS] = student
 }
 
 // Batch save using Upsert API
 const saveChanges = async () => {
+  if (!canEditScores.value) return
   const dsToSave = Object.values(updateCache.value)
   if (dsToSave.length === 0) return
   
@@ -139,7 +172,11 @@ const saveChanges = async () => {
     <div class="flex flex-wrap justify-between items-end gap-4">
       <div>
         <h2 class="text-2xl font-bold text-[#2B3674] dark:text-white mb-1">Bảng Điểm (Ma Trận)</h2>
-        <p class="text-sm text-gray-400 dark:text-gray-400">Quản lý và cập nhật điểm số học sinh theo từng Lớp và Môn học.</p>
+        <p class="text-sm text-gray-400 dark:text-gray-400">
+          {{ auth.isParent
+            ? 'Xem điểm các môn của con theo lớp và học kỳ (chỉ xem, không chỉnh sửa).'
+            : 'Quản lý và cập nhật điểm số học sinh theo từng Lớp và Môn học.' }}
+        </p>
       </div>
       <div class="flex items-center gap-3">
         <button @click="fetchBangDiem" class="flex items-center gap-2 px-4 py-2 border border-blue-200 dark:border-blue-500/30 rounded-lg text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors bg-white dark:bg-[#111C44]">
@@ -147,6 +184,7 @@ const saveChanges = async () => {
           Làm mới
         </button>
         <button 
+          v-if="canEditScores"
           @click="saveChanges"
           :disabled="Object.keys(updateCache).length === 0 || saving"
           class="flex items-center gap-2 px-4 py-2 bg-[#1E88E5] hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-bold transition-colors shadow-sm shadow-blue-500/30 dark:shadow-none"
@@ -272,8 +310,12 @@ const saveChanges = async () => {
                   type="number" step="0.1" min="0" max="10"
                   v-model.number="student.DiemMieng" 
                   @input="markDirty(student)"
+                  :readonly="!canEditScores"
                   class="w-full h-10 text-center bg-gray-50 dark:bg-[#0B1437] border-2 border-transparent focus:border-blue-500 rounded-lg text-sm font-bold focus:bg-white dark:focus:bg-[#111C44] transition-all outline-none"
-                  :class="student.DiemMieng !== null ? 'text-gray-700 dark:text-gray-200' : 'text-gray-300 dark:text-gray-600'"
+                  :class="[
+                    student.DiemMieng !== null ? 'text-gray-700 dark:text-gray-200' : 'text-gray-300 dark:text-gray-600',
+                    !canEditScores ? 'cursor-default' : ''
+                  ]"
                 />
               </td>
               <td class="border-r border-gray-100 dark:border-white/10 p-2 align-middle">
@@ -281,8 +323,12 @@ const saveChanges = async () => {
                   type="number" step="0.1" min="0" max="10"
                   v-model.number="student.Diem15p" 
                   @input="markDirty(student)"
+                  :readonly="!canEditScores"
                   class="w-full h-10 text-center bg-gray-50 dark:bg-[#0B1437] border-2 border-transparent focus:border-blue-500 rounded-lg text-sm font-bold focus:bg-white dark:focus:bg-[#111C44] transition-all outline-none"
-                  :class="student.Diem15p !== null ? 'text-gray-700 dark:text-gray-200' : 'text-gray-300 dark:text-gray-600'"
+                  :class="[
+                    student.Diem15p !== null ? 'text-gray-700 dark:text-gray-200' : 'text-gray-300 dark:text-gray-600',
+                    !canEditScores ? 'cursor-default' : ''
+                  ]"
                 />
               </td>
 
@@ -292,8 +338,12 @@ const saveChanges = async () => {
                   type="number" step="0.1" min="0" max="10"
                   v-model.number="student.DiemGiuaKy" 
                   @input="markDirty(student)"
+                  :readonly="!canEditScores"
                   class="w-full h-10 text-center bg-transparent border-2 border-dashed border-blue-200 dark:border-blue-500/30 rounded-lg text-sm font-extrabold focus:border-blue-500 focus:bg-white dark:focus:bg-[#111C44] transition-all outline-none"
-                  :class="student.DiemGiuaKy !== null ? 'text-[#1E88E5] dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'"
+                  :class="[
+                    student.DiemGiuaKy !== null ? 'text-[#1E88E5] dark:text-blue-400' : 'text-gray-400 dark:text-gray-500',
+                    !canEditScores ? 'cursor-default' : ''
+                  ]"
                 />
               </td>
               <td class="border-r border-gray-100 dark:border-white/10 p-2 align-middle bg-red-50/30 dark:bg-red-500/[0.05]">
@@ -301,8 +351,12 @@ const saveChanges = async () => {
                   type="number" step="0.1" min="0" max="10"
                   v-model.number="student.DiemCuoiKy" 
                   @input="markDirty(student)"
+                  :readonly="!canEditScores"
                   class="w-full h-10 text-center bg-transparent border-2 border-solid border-red-200 dark:border-red-500/30 rounded-lg text-sm font-extrabold focus:border-red-500 focus:bg-white dark:focus:bg-[#111C44] transition-all outline-none"
-                  :class="student.DiemCuoiKy !== null ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'"
+                  :class="[
+                    student.DiemCuoiKy !== null ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500',
+                    !canEditScores ? 'cursor-default' : ''
+                  ]"
                 />
               </td>
 
@@ -334,7 +388,11 @@ const saveChanges = async () => {
             <tr v-if="filteredReports.length === 0 && !loading">
               <td colspan="6" class="py-16 text-center text-gray-400 dark:text-gray-500 bg-gray-50/50 dark:bg-transparent">
                 <p class="font-bold text-base mb-1">Không có học sinh trong lớp/môn này</p>
-                <p class="text-xs font-medium">Hoặc bạn chưa đổi sang bộ lọc phù hợp.</p>
+                <p class="text-xs font-medium">
+                  {{ auth.isParent
+                    ? 'Chọn đúng lớp của con và học kỳ; nếu vẫn trống, kiểm tra tài khoản đã được liên kết với học sinh trên hệ thống.'
+                    : 'Hoặc bạn chưa đổi sang bộ lọc phù hợp (năm học lấy theo lớp đang chọn).' }}
+                </p>
               </td>
             </tr>
           </tbody>

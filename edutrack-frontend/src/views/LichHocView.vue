@@ -2,6 +2,11 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { BookOpen, User, MapPin, RefreshCcw, School, ChevronDown } from 'lucide-vue-next'
 import { apiService } from '../services/api'
+import { useAuthStore } from '../stores/auth'
+
+const auth = useAuthStore()
+/** Phụ huynh không có danh sách GV cho TKB — chỉ xem theo lớp con. */
+const showGiaoVienTab = computed(() => !auth.isParent)
 
 // ── Tabs ─────────────────────────────────────────────
 const activeTab = ref('lop') // 'lop' | 'giaovien'
@@ -94,12 +99,27 @@ const fetchMasterData = async () => {
   try {
     const [lopRes, gvRes] = await Promise.all([
       apiService.getLopHocs(),
-      apiService.getGiaoViens(),
+      apiService.getGiaoViensForSchedule(),
     ])
-    lopList.value    = lopRes.data
-    giaoVienList.value = gvRes.data
-    // auto-select first
-    if (lopList.value.length)    { selectedLop.value = lopList.value[0].MaLop; fetchSchedule() }
+    let lops = lopRes.data || []
+
+    if (auth.isParent) {
+      try {
+        const hsRes = await apiService.getHocSinhs()
+        const allowed = [...new Set((hsRes.data || []).map((s) => s.MaLop).filter(Boolean))]
+        if (allowed.length > 0) {
+          const filtered = lops.filter((c) => allowed.includes(c.MaLop))
+          if (filtered.length > 0) lops = filtered
+        }
+      } catch (e) {
+        console.error('Không tải được danh sách học sinh (phụ huynh):', e)
+      }
+    }
+
+    lopList.value = lops
+    giaoVienList.value = gvRes.data || []
+
+    if (lopList.value.length) selectedLop.value = lopList.value[0].MaLop
     if (giaoVienList.value.length) selectedGV.value = giaoVienList.value[0].MaGV
   } catch (e) {
     console.error('Lỗi tải danh sách:', e)
@@ -108,6 +128,9 @@ const fetchMasterData = async () => {
 
 onMounted(fetchMasterData)
 watch([activeTab, selectedLop, selectedGV], fetchSchedule)
+watch(showGiaoVienTab, (ok) => {
+  if (!ok && activeTab.value === 'giaovien') activeTab.value = 'lop'
+})
 </script>
 
 <template>
@@ -137,6 +160,7 @@ watch([activeTab, selectedLop, selectedGV], fetchSchedule)
             Theo Lớp
           </button>
           <button
+            v-if="showGiaoVienTab"
             @click="activeTab = 'giaovien'"
             :class="['flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all', activeTab === 'giaovien' ? 'bg-white dark:bg-[#1E2A5E] text-[#1E88E5] shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
           >

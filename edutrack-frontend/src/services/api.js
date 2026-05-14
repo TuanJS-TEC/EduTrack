@@ -17,8 +17,12 @@ api.interceptors.response.use(
       // Token hết hạn hoặc không hợp lệ → xóa và về login
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
+      localStorage.removeItem('userId')
       localStorage.removeItem('username')
-      localStorage.removeItem('role')
+      localStorage.removeItem('roles')
+      localStorage.removeItem('permissions')
+      localStorage.removeItem('maGV')
+      localStorage.removeItem('hoTen')
       window.location.href = '/login'
     }
     return Promise.reject(error)
@@ -35,6 +39,8 @@ export const apiService = {
 
   // GiaoVien
   getGiaoViens: () => api.get('/api/giaovien'),
+  /** Dropdown TKB: GV chỉ thấy chính mình; Admin/BGH/Kế toán thấy tất cả. */
+  getGiaoViensForSchedule: () => api.get('/api/giaovien/for-schedule'),
   getGiaoVienById: (id) => api.get(`/api/giaovien/${id}`),
   createGiaoVien: (data) => api.post('/api/giaovien', data),
   updateGiaoVien: (id, data) => api.put(`/api/giaovien/${id}`, data),
@@ -52,17 +58,22 @@ export const apiService = {
   
   // DiemSo
   getDiemSos: (hocKy, maLop, maMon) => api.get('/api/diemso', { params: { hocKy, maLop, maMon } }),
-  getBangDiem: (maLop, maMon, hocKy) => api.get('/api/diemso/bangdiem', { params: { maLop, maMon, hocKy } }),
+  /** namHoc bắt buộc khớp cột DiemSo.NamHoc (vd: 2025-2026). Lấy từ LopHoc.NamHoc của lớp đang chọn. */
+  getBangDiem: (maLop, maMon, hocKy, namHoc) =>
+    api.get('/api/diemso/bangdiem', { params: { maLop, maMon, hocKy, namHoc } }),
   saveDiemSo: (data) => api.post('/api/diemso', data),
   upsertDiemSo: (data) => api.post('/api/diemso/upsert', data),
 
   // ThongBao
-  getThongBaos: () => api.get('/api/thongbao'),
-  markAsRead: (id) => api.put(`/api/thongbao/${id}`),
+  getThongBaos: (params) => api.get('/api/thongbao', { params }),
+  markAsRead: (id) => api.put(`/api/thongbao/${id}/read`),
 
-  // DSs (Decision Support System)
+  // DSS (Decision Support System)
   getDssCanhBao: (hocKy, maLop, targetTb) => api.get('/api/dss/canh-bao-roi-mon', { params: { hocKy, maLop, targetTb } }),
   getDssThongKeHocLuc: (hocKy, namHoc) => api.get('/api/dss/dashboard-hoc-luc', { params: { hocKy, namHoc } }),
-  postDssWhatIf: (data) => api.post('/api/dss/what-if', data)
+  postDssWhatIf: (data) => api.post('/api/dss/what-if', data),
+
+  // Reports
+  getReports: (params) => api.get('/api/reports', { params }),
 }
 

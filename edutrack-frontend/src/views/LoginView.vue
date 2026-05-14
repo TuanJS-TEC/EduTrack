@@ -15,7 +15,7 @@ async function onSubmit() {
   loading.value = true
   try {
     await auth.login(form.username, form.password)
-    await router.push('/dashboard')
+    await router.push('/')
   } catch (e) {
     error.value = e?.response?.data?.message || 'Đăng nhập thất bại'
   } finally {

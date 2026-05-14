@@ -2,18 +2,36 @@
 import { ref, computed, onMounted } from 'vue'
 import { Plus, Search, MoreHorizontal, Users, UserSquare, Calendar, Filter, RefreshCcw } from 'lucide-vue-next'
 import { apiService } from '../services/api'
+import { useAuthStore } from '../stores/auth'
 
+const auth = useAuthStore()
+/** Trùng policy backend: POST/PUT/DELETE lớp cần System.Configure (thường chỉ Admin). */
+const canManageClasses = computed(() => auth.hasPermission('System.Configure'))
 const search = ref('')
 const gradeFilter = ref('All')
 
 
-const summaryCards = [
-  { id: 1, title: 'Tổng số lớp học', value: '2', subtitle: 'Toàn trường', icon: Users, color: 'text-blue-500 bg-blue-50 dark:text-blue-400 dark:bg-blue-500/10' },
-  { id: 2, title: 'Năm học hiện tại', value: '2025-2026', subtitle: 'Học kỳ 1', icon: Calendar, color: 'text-purple-500 bg-purple-50 dark:text-purple-400 dark:bg-purple-500/10' },
-]
-
 const classesList = ref([])
 const loading = ref(false)
+
+const summaryCards = computed(() => [
+  {
+    id: 1,
+    title: 'Tổng số lớp học',
+    value: String(classesList.value.length),
+    subtitle: 'Toàn trường',
+    icon: Users,
+    color: 'text-blue-500 bg-blue-50 dark:text-blue-400 dark:bg-blue-500/10'
+  },
+  {
+    id: 2,
+    title: 'Năm học hiện tại',
+    value: classesList.value.length > 0 ? (classesList.value[0].NamHoc ?? '—') : '—',
+    subtitle: 'Học kỳ 1',
+    icon: Calendar,
+    color: 'text-purple-500 bg-purple-50 dark:text-purple-400 dark:bg-purple-500/10'
+  },
+])
 
 const fetchClasses = async () => {
   loading.value = true
@@ -56,7 +74,10 @@ const filteredClasses = computed(() => {
           <RefreshCcw :size="16" :class="{ 'animate-spin': loading }" />
           Refresh
         </button>
-        <button class="flex items-center gap-2 px-4 py-2 bg-[#1E88E5] hover:bg-blue-600 text-white rounded-lg text-sm font-bold transition-colors shadow-sm shadow-blue-500/30 dark:shadow-none hidden sm:flex">
+        <button
+          v-if="canManageClasses"
+          type="button"
+          class="flex items-center gap-2 px-4 py-2 bg-[#1E88E5] hover:bg-blue-600 text-white rounded-lg text-sm font-bold transition-colors shadow-sm shadow-blue-500/30 dark:shadow-none hidden sm:flex">
           <Plus :size="16" />
           Create Class
         </button>
@@ -152,9 +173,15 @@ const filteredClasses = computed(() => {
                 </div>
               </td>
               <td class="py-4 pr-6 pl-3 text-right">
-                <button class="p-2 text-gray-400 dark:text-gray-500 hover:text-[#2B3674] dark:hover:text-white transition-colors rounded-lg hover:bg-gray-50 dark:hover:bg-white/5">
+                <button
+                  v-if="canManageClasses"
+                  type="button"
+                  title="Thao tác lớp (cần quyền cấu hình hệ thống)"
+                  class="p-2 text-gray-400 dark:text-gray-500 hover:text-[#2B3674] dark:hover:text-white transition-colors rounded-lg hover:bg-gray-50 dark:hover:bg-white/5"
+                >
                   <MoreHorizontal :size="18" />
                 </button>
+                <span v-else class="inline-block text-xs text-gray-300 dark:text-gray-600 font-medium tabular-nums" title="Chỉ xem — không có quyền quản lý lớp">—</span>
               </td>
             </tr>
             <tr v-if="filteredClasses.length === 0 && !loading">

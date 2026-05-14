@@ -1,8 +1,11 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { apiService } from '../services/api'
+import { useAuthStore } from '../stores/auth'
 import * as XLSX from 'xlsx'
 
 export function useHocSinh() {
+  const auth = useAuthStore()
+  const canEditStudents = () => auth.hasPermission('Students.Edit')
   const search = ref('')
   const gradeFilter = ref('All')
   const statusFilter = ref('All')
@@ -140,6 +143,7 @@ export function useHocSinh() {
   const saving         = ref(false)
 
   const openEdit = (student) => {
+    if (!canEditStudents()) return
     editForm.value = {
       MaHS:          student.MaHS,
       HoTen:         student.HoTen         ?? '',
@@ -154,6 +158,7 @@ export function useHocSinh() {
   }
 
   const saveEdit = async () => {
+    if (!canEditStudents()) return
     saving.value = true
     try {
       await apiService.updateHocSinh(editForm.value.MaHS, {
@@ -172,6 +177,7 @@ export function useHocSinh() {
   }
 
   const confirmDelete = async (student) => {
+    if (!canEditStudents()) return
     if (!confirm(`Xóa học sinh "${student.HoTen}" (${student.MaHS})?\nHành động này không thể hoàn tác.`)) return
     try {
       await apiService.deleteHocSinh(student.MaHS)
@@ -194,11 +200,13 @@ export function useHocSinh() {
   })
 
   const openAdd = () => {
+    if (!canEditStudents()) return
     addForm.value = EMPTY_FORM()
     showAddModal.value = true
   }
 
   const saveAdd = async () => {
+    if (!canEditStudents()) return
     if (!addForm.value.MaHS || !addForm.value.HoTen || !addForm.value.MaLop) {
       alert('Vui lòng điền đủ: Mã HS, Họ tên, Lớp!')
       return
@@ -244,6 +252,7 @@ export function useHocSinh() {
   }
 
   const bulkDelete = async () => {
+    if (!canEditStudents()) return
     const count = selectedIds.value.size
     if (!count) return
     if (!confirm(`Xóa ${count} học sinh đã chọn?\nHành động này không thể hoàn tác.`)) return

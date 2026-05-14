@@ -1,7 +1,18 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Download, FileText, Search, Plus, Edit2, Eye, Trash2, RefreshCcw, X, AlertCircle, CheckCircle } from 'lucide-vue-next'
+import { ElMessage } from 'element-plus'
 import { apiService } from '../services/api'
+import { useAuthStore } from '../stores/auth'
+import { getFirstAccessibleRoute } from '../router/index.js'
+
+const router = useRouter()
+const auth = useAuthStore()
+
+/** Xem danh sách: Teachers.View. Thêm/sửa/xóa: Admin hoặc BGH (khớp policy API). */
+const canViewTeachers = computed(() => auth.hasPermission('Teachers.View'))
+const canManageTeachers = computed(() => auth.isAdmin || auth.isBGH)
 
 const search = ref('')
 const chuyenMonFilter = ref('All')
@@ -44,6 +55,7 @@ const chuyenMonOptions = [
 ]
 
 const fetchTeachers = async () => {
+  if (!canViewTeachers.value) return
   loading.value = true
   try {
     const res = await apiService.getGiaoViens()
@@ -57,6 +69,11 @@ const fetchTeachers = async () => {
 }
 
 onMounted(() => {
+  if (!canViewTeachers.value) {
+    ElMessage.warning('Bạn không có quyền xem danh sách giáo viên.')
+    router.replace(getFirstAccessibleRoute(auth.permissions, auth.roles))
+    return
+  }
   fetchTeachers()
 })
 
@@ -126,6 +143,10 @@ const formatCurrency = (value) => {
 
 // Modal Functions
 const openAddModal = () => {
+  if (!canManageTeachers.value) {
+    showNotification('Chỉ Admin hoặc BGH được thêm giáo viên.', 'error')
+    return
+  }
   isEditMode.value = false
   formData.value = {
     maGV: '',
@@ -138,6 +159,10 @@ const openAddModal = () => {
 }
 
 const openEditModal = (teacher) => {
+  if (!canManageTeachers.value) {
+    showNotification('Chỉ Admin hoặc BGH được sửa giáo viên.', 'error')
+    return
+  }
   isEditMode.value = true
   selectedTeacher.value = teacher
   formData.value = {
@@ -163,6 +188,10 @@ const closeModal = () => {
 }
 
 const handleSubmit = async () => {
+  if (!canManageTeachers.value) {
+    showNotification('Chỉ Admin hoặc BGH được thêm/sửa giáo viên.', 'error')
+    return
+  }
   if (!formData.value.maGV || !formData.value.hoTen) {
     showNotification('Vui lòng điền đầy đủ thông tin', 'error')
     return
@@ -197,6 +226,10 @@ const handleSubmit = async () => {
 }
 
 const handleDelete = async (maGV, hoTen) => {
+  if (!canManageTeachers.value) {
+    showNotification('Bạn không có quyền xóa giáo viên.', 'error')
+    return
+  }
   if (!confirm(`Bạn có chắc chắn muốn xóa giáo viên ${hoTen}?`)) {
     return
   }
@@ -255,7 +288,11 @@ const handleDelete = async (maGV, hoTen) => {
             </select>
           </div>
 
-          <button @click="openAddModal" class="flex items-center gap-2 px-4 py-2 bg-[#1E88E5] hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm shadow-blue-500/30 dark:shadow-none whitespace-nowrap">
+          <button
+            v-if="canManageTeachers"
+            @click="openAddModal"
+            class="flex items-center gap-2 px-4 py-2 bg-[#1E88E5] hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm shadow-blue-500/30 dark:shadow-none whitespace-nowrap"
+          >
             <Plus :size="16" />
             Add Teacher
           </button>
@@ -308,10 +345,20 @@ const handleDelete = async (maGV, hoTen) => {
               </td>
               <td class="py-4 pr-6 pl-3">
                 <div class="flex items-center justify-end gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button @click="openEditModal(teacher)" class="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-md transition-colors" title="Edit">
+                  <button
+                    v-if="canManageTeachers"
+                    @click="openEditModal(teacher)"
+                    class="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-md transition-colors"
+                    title="Edit"
+                  >
                     <Edit2 :size="16" />
                   </button>
-                  <button @click="handleDelete(teacher.MaGV, teacher.HoTen)" class="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors" title="Delete">
+                  <button
+                    v-if="canManageTeachers"
+                    @click="handleDelete(teacher.MaGV, teacher.HoTen)"
+                    class="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors"
+                    title="Delete"
+                  >
                     <Trash2 :size="16" />
                   </button>
                 </div>

@@ -3,7 +3,11 @@ import { ref, computed, onMounted } from 'vue'
 import { Download, Plus, Edit2, Eye, Trash2, AlertCircle, Send } from 'lucide-vue-next'
 import { api } from '../services/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useAuthStore } from '../stores/auth'
 
+const auth = useAuthStore()
+/** Khớt API: POST/PUT/DELETE cần Finance.Manage — phụ huynh chỉ có Finance.View. */
+const canManageFinance = computed(() => auth.hasPermission('Finance.Manage'))
 // State
 const loading = ref(false)
 const dialogVisible = ref(false)
@@ -37,15 +41,19 @@ const metrics = computed(() => {
 
   const today = new Date()
   const collected = tuitionRecords.value
-    .filter(r => r.TrangThai === 'Đã đóng')
+    .filter(r => r.TrangThai === 'Đã đóng' || r.TrangThai === 'PAID')
     .reduce((sum, r) => sum + (Number(r.SoTien) || 0), 0)
 
   const pending = tuitionRecords.value
-    .filter(r => r.TrangThai === 'Chưa đóng')
+    .filter(r => r.TrangThai === 'Chưa đóng' || r.TrangThai === 'UNPAID')
     .reduce((sum, r) => sum + (Number(r.SoTien) || 0), 0)
 
   const overdue = tuitionRecords.value
-    .filter(r => r.TrangThai === 'Chưa đóng' && r.NgayDong && new Date(r.NgayDong) < today)
+    .filter(r =>
+      (r.TrangThai === 'Chưa đóng' || r.TrangThai === 'UNPAID' || r.TrangThai === 'OVERDUE' || r.TrangThai === 'Nợ') &&
+      r.NgayDong &&
+      new Date(r.NgayDong) < today
+    )
     .reduce((sum, r) => sum + (Number(r.SoTien) || 0), 0)
 
   const totalExpected = collected + pending
@@ -58,7 +66,10 @@ const metrics = computed(() => {
     overdue: overdue.toLocaleString('vi-VN'),
     collectionRate: collectionRate,
     overdueCount: tuitionRecords.value.filter(
-      r => r.TrangThai === 'Chưa đóng' && r.NgayDong && new Date(r.NgayDong) < today
+      r =>
+        (r.TrangThai === 'Chưa đóng' || r.TrangThai === 'UNPAID' || r.TrangThai === 'OVERDUE' || r.TrangThai === 'Nợ') &&
+        r.NgayDong &&
+        new Date(r.NgayDong) < today
     ).length,
   }
 })
@@ -81,7 +92,13 @@ const recordsWithStudentInfo = computed(() => {
   const today = new Date()
   return filteredRecords.value.map(record => {
     const student = students.value.find(s => s.MaHS === record.MaHS)
-    const isOverdue = record.TrangThai === 'Chưa đóng' && record.NgayDong && new Date(record.NgayDong) < today
+    const isOverdue =
+      (record.TrangThai === 'Chưa đóng' ||
+        record.TrangThai === 'UNPAID' ||
+        record.TrangThai === 'OVERDUE' ||
+        record.TrangThai === 'Nợ') &&
+      record.NgayDong &&
+      new Date(record.NgayDong) < today
     return {
       ...record,
       studentName: student?.HoTen || 'N/A',
@@ -98,6 +115,9 @@ const getStatusBadge = (status) => {
     'Đã đóng': { bg: 'bg-green-50 dark:bg-green-500/10', text: 'text-green-600 dark:text-green-400' },
     'Chưa đóng': { bg: 'bg-yellow-50 dark:bg-yellow-500/10', text: 'text-yellow-600 dark:text-yellow-400' },
     'Nợ': { bg: 'bg-red-50 dark:bg-red-500/10', text: 'text-red-600 dark:text-red-400' },
+    PAID: { bg: 'bg-green-50 dark:bg-green-500/10', text: 'text-green-600 dark:text-green-400' },
+    UNPAID: { bg: 'bg-yellow-50 dark:bg-yellow-500/10', text: 'text-yellow-600 dark:text-yellow-400' },
+    OVERDUE: { bg: 'bg-red-50 dark:bg-red-500/10', text: 'text-red-600 dark:text-red-400' },
   }
   return badges[status] || badges['Chưa đóng']
 }
@@ -126,6 +146,10 @@ const loadStudents = async () => {
 }
 
 const openDialog = () => {
+  if (!canManageFinance.value) {
+    ElMessage.warning('Bạn không có quyền thêm hoặc sửa học phí.')
+    return
+  }
   isEditMode.value = false
   formData.value = {
     MaHocPhi: 0,
@@ -139,6 +163,10 @@ const openDialog = () => {
 }
 
 const editRecord = (record) => {
+  if (!canManageFinance.value) {
+    ElMessage.warning('Bạn không có quyền chỉnh sửa học phí.')
+    return
+  }
   isEditMode.value = true
   formData.value = {
     MaHocPhi: record.MaHocPhi,
@@ -152,6 +180,10 @@ const editRecord = (record) => {
 }
 
 const saveRecord = async () => {
+  if (!canManageFinance.value) {
+    ElMessage.warning('Bạn không có quyền lưu học phí.')
+    return
+  }
   if (!formData.value.MaHS || !formData.value.SoTien) {
     ElMessage.warning('Vui lòng điền đầy đủ thông tin bắt buộc')
     return
@@ -179,6 +211,10 @@ const saveRecord = async () => {
 }
 
 const deleteRecord = async (MaHocPhi) => {
+  if (!canManageFinance.value) {
+    ElMessage.warning('Bạn không có quyền xóa học phí.')
+    return
+  }
   try {
     await ElMessageBox.confirm('Bạn có chắc muốn xóa bản ghi này?', 'Xác nhận', {
       confirmButtonText: 'Xóa',
@@ -196,9 +232,13 @@ const deleteRecord = async (MaHocPhi) => {
 }
 
 const sendReminders = async () => {
+  if (!canManageFinance.value) return
   try {
     const overdueRecords = tuitionRecords.value.filter(
-      r => r.TrangThai === 'Chưa đóng' && r.NgayDong && new Date(r.NgayDong) < new Date()
+      r =>
+        (r.TrangThai === 'Chưa đóng' || r.TrangThai === 'UNPAID' || r.TrangThai === 'OVERDUE' || r.TrangThai === 'Nợ') &&
+        r.NgayDong &&
+        new Date(r.NgayDong) < new Date()
     )
     if (overdueRecords.length === 0) {
       ElMessage.info('Không có học phí quá hạn để nhắc nhở')
@@ -260,6 +300,7 @@ onMounted(() => {
           Export Report
         </button>
         <button
+          v-if="canManageFinance"
           @click="openDialog"
           class="flex items-center gap-2 px-4 py-2 bg-[#1E88E5] hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm shadow-blue-500/30 dark:shadow-none"
         >
@@ -369,6 +410,7 @@ onMounted(() => {
             </div>
           </div>
           <button
+            v-if="canManageFinance"
             @click="sendReminders"
             class="w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors"
           >
@@ -417,9 +459,12 @@ onMounted(() => {
               class="appearance-none bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-transparent text-gray-700 dark:text-gray-200 py-2 pl-4 pr-10 rounded-lg text-sm font-medium focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="All">All Status</option>
-              <option value="Đã đóng">Paid</option>
-              <option value="Chưa đóng">Pending</option>
-              <option value="Nợ">Overdue</option>
+              <option value="Đã đóng">Paid (Đã đóng)</option>
+              <option value="PAID">PAID</option>
+              <option value="Chưa đóng">Pending (Chưa đóng)</option>
+              <option value="UNPAID">UNPAID</option>
+              <option value="OVERDUE">OVERDUE</option>
+              <option value="Nợ">Overdue (Nợ)</option>
             </select>
           </div>
         </div>
@@ -438,7 +483,7 @@ onMounted(() => {
               <th class="py-4 px-3 text-center">DUE DATE</th>
               <th class="py-4 px-3 text-center">METHOD</th>
               <th class="py-4 px-3 text-center">STATUS</th>
-              <th class="py-4 pr-6 pl-3 text-right">ACTIONS</th>
+              <th class="py-4 pr-6 pl-3 text-right">{{ canManageFinance ? 'ACTIONS' : 'GHI CHÚ' }}</th>
             </tr>
           </thead>
           <tbody class="text-sm" v-if="!loading">
@@ -460,9 +505,9 @@ onMounted(() => {
               <td class="py-4 px-3 text-center">
                 <div class="flex items-center justify-center gap-2">
                   <div class="w-20 bg-gray-200 dark:bg-white/10 rounded-full h-1.5 overflow-hidden">
-                    <div class="bg-green-500 h-full" :style="{ width: record.TrangThai === 'Đã đóng' ? '100%' : '0%' }"></div>
+                    <div class="bg-green-500 h-full" :style="{ width: (record.TrangThai === 'Đã đóng' || record.TrangThai === 'PAID') ? '100%' : '0%' }"></div>
                   </div>
-                  <span class="text-xs font-bold text-gray-600 dark:text-gray-400">{{ record.TrangThai === 'Đã đóng' ? '100%' : '0%' }}</span>
+                  <span class="text-xs font-bold text-gray-600 dark:text-gray-400">{{ (record.TrangThai === 'Đã đóng' || record.TrangThai === 'PAID') ? '100%' : '0%' }}</span>
                 </div>
               </td>
               <td class="py-4 px-3 text-center text-gray-600 dark:text-gray-400">
@@ -481,7 +526,7 @@ onMounted(() => {
                 </span>
               </td>
               <td class="py-4 pr-6 pl-3">
-                <div class="flex items-center justify-end gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
+                <div v-if="canManageFinance" class="flex items-center justify-end gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     @click="editRecord(record)"
                     class="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-md transition-colors"
@@ -503,6 +548,9 @@ onMounted(() => {
                   >
                     <Trash2 :size="16" />
                   </button>
+                </div>
+                <div v-else class="flex justify-end pr-1">
+                  <span class="text-xs text-gray-400 dark:text-gray-500" title="Chỉ xem — không chỉnh sửa học phí">—</span>
                 </div>
               </td>
             </tr>

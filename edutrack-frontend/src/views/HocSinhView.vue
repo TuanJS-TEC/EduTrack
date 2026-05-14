@@ -1,6 +1,12 @@
 <script setup>
+import { computed } from 'vue'
 import { Download, Search, Edit2, Trash2, RefreshCcw, Plus, UserMinus } from 'lucide-vue-next'
+import { useAuthStore } from '../stores/auth'
 import { useHocSinh } from '../composables/useHocSinh'
+
+const auth = useAuthStore()
+/** Chỉ Admin (và các vai được gán Students.Edit) mới được thêm/sửa/xóa hồ sơ học sinh. */
+const canEditStudents = computed(() => auth.hasPermission('Students.Edit'))
 
 const {
   search, gradeFilter, statusFilter,
@@ -24,7 +30,9 @@ const {
     <div class="flex justify-between items-end">
       <div>
         <h2 class="text-2xl font-bold text-[#2B3674] dark:text-white mb-1">Học Sinh</h2>
-        <p class="text-sm text-gray-400">Quản lý hồ sơ và thông tin toàn bộ học sinh.</p>
+        <p class="text-sm text-gray-400">
+          {{ canEditStudents ? 'Quản lý hồ sơ và thông tin toàn bộ học sinh.' : 'Xem thông tin học sinh được liên kết với tài khoản của bạn.' }}
+        </p>
       </div>
       <div class="flex items-center gap-3">
         <button @click="fetchStudents"
@@ -36,7 +44,7 @@ const {
           class="hidden sm:flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-white/10 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
           <Download :size="16" /> Xuất Excel
         </button>
-        <button @click="openAdd"
+        <button v-if="canEditStudents" @click="openAdd"
           class="flex items-center gap-2 px-4 py-2 bg-[#1E88E5] hover:bg-blue-600 rounded-lg text-sm font-bold text-white transition-colors shadow-sm shadow-blue-500/30">
           <Plus :size="16" /> Thêm mới
         </button>
@@ -45,7 +53,7 @@ const {
 
     <!-- BULK ACTION BAR -->
     <Transition name="slide-down">
-      <div v-if="selectedIds.size > 0"
+      <div v-if="canEditStudents && selectedIds.size > 0"
         class="flex items-center justify-between px-5 py-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-xl">
         <span class="text-sm font-bold text-blue-700 dark:text-blue-300">
           Đã chọn <span class="bg-blue-600 text-white rounded px-1.5">{{ selectedIds.size }}</span> học sinh
@@ -101,7 +109,7 @@ const {
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="text-[11px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-white/5">
-              <th class="py-4 pl-6 pr-3 w-12">
+              <th v-if="canEditStudents" class="py-4 pl-6 pr-3 w-12">
                 <input type="checkbox" :checked="isAllSelected" @change="toggleAll"
                   class="rounded border-gray-300 dark:border-gray-600 dark:bg-transparent text-blue-500 focus:ring-blue-500 w-4 h-4 cursor-pointer" />
               </th>
@@ -113,14 +121,14 @@ const {
               <th class="py-4 px-3 text-center">Trạng Thái</th>
               <th class="py-4 px-3 text-center">Điểm TB</th>
               <th class="py-4 px-3 text-center">Hạnh Kiểm</th>
-              <th class="py-4 pr-6 pl-3 text-right">Hành Động</th>
+              <th v-if="canEditStudents" class="py-4 pr-6 pl-3 text-right">Hành Động</th>
             </tr>
           </thead>
           <tbody class="text-sm font-medium">
             <tr v-for="student in pagedStudents" :key="student.MaHS"
               class="border-b border-gray-50 dark:border-white/5 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-colors group">
 
-              <td class="py-4 pl-6 pr-3">
+              <td v-if="canEditStudents" class="py-4 pl-6 pr-3">
                 <input type="checkbox" :checked="selectedIds.has(student.MaHS)" @change="toggleOne(student.MaHS)"
                   class="rounded border-gray-300 dark:border-gray-600 dark:bg-transparent text-blue-500 focus:ring-blue-500 w-4 h-4 cursor-pointer" />
               </td>
@@ -184,7 +192,7 @@ const {
               </td>
 
               <!-- Hành động -->
-              <td class="py-4 pr-6 pl-3">
+              <td v-if="canEditStudents" class="py-4 pr-6 pl-3">
                 <div class="flex items-center justify-end gap-2">
                   <button @click="openEdit(student)"
                     class="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-md transition-colors" title="Chỉnh sửa">
@@ -200,7 +208,7 @@ const {
 
             <!-- Empty state -->
             <tr v-if="filteredStudents.length === 0 && !loading">
-              <td colspan="10" class="py-12 text-center text-gray-500 dark:text-gray-400 font-medium">
+              <td :colspan="canEditStudents ? 10 : 8" class="py-12 text-center text-gray-500 dark:text-gray-400 font-medium">
                 Không tìm thấy hồ sơ học sinh nào.
               </td>
             </tr>
@@ -255,7 +263,7 @@ const {
 
   <!-- ── EDIT MODAL ─────────────────────────────────── -->
   <Transition name="fade">
-    <div v-if="showEditModal"
+    <div v-if="canEditStudents && showEditModal"
       class="fixed inset-0 z-50 flex items-center justify-center p-4"
       @click.self="showEditModal = false"
     >
@@ -351,7 +359,7 @@ const {
 
   <!-- ── ADD STUDENT MODAL ─────────────────────────── -->
   <Transition name="fade">
-    <div v-if="showAddModal"
+    <div v-if="canEditStudents && showAddModal"
       class="fixed inset-0 z-50 flex items-center justify-center p-4"
       @click.self="showAddModal = false">
       <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>

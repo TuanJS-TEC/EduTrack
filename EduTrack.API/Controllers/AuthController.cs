@@ -54,6 +54,8 @@ public sealed class AuthController(
         {
             UserId = user.Id,
             Username = user.UserName ?? "",
+            MaGV = user.MaGV,
+            HoTen = user.HoTen,
             Roles = roles.OrderBy(r => r).ToList(),
             Permissions = permissions.OrderBy(p => p).ToList(),
             AccessToken = access,

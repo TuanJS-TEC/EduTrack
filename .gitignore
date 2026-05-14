@@ -40,3 +40,6 @@ Desktop.ini
 **/.npm/
 
 .gitnexus
+
+# Local alternate build output (CI / agent)
+_build_out/

@@ -1,0 +1,88 @@
+1. Xác thực & phiên (AuthController + TokenService + RefreshTokens)
+Đăng nhập (POST /api/auth/login): trả JWT, refresh token, danh sách roles & permissions.
+Làm mới token (POST /api/auth/refresh).
+Thu hồi refresh token (POST /api/auth/revoke).
+Claim trong JWT: user id, username, ma_gv (nếu có), roles, từng quyền permission.
+2. Phân quyền & quản trị người dùng
+Policies (Program.cs + AppPermissions / AppPolicies): gắn claim permission với từng policy (Students, Scores, Finance, Dashboard, Reports, Teachers, System, Users, Roles, Notifications…).
+Mapping role → permission (RolePermissionSeeder): Admin, BGH, Teacher, Accountant, Parent.
+Kiểm soát theo dữ liệu (AccessControlService): xem/sửa học sinh theo vai trò; phụ huynh chỉ con được link; giáo viên sửa điểm khi GVCN hoặc có trong LichHocs; tài chính theo role.
+Quản trị user (UsersController, policy Users.Manage): danh sách user, tạo user, gán roles, link phụ huynh–học sinh (ParentStudentLinks).
+3. Học sinh (HocSinhController + HocSinhView.vue)
+Danh sách có phân trang (GET .../paged), lọc theo quyền (kể cả phụ huynh).
+Chi tiết, hồ sơ, lịch sử học tập.
+CRUD (tạo/sửa/xóa) với policy Students.Edit + kiểm tra AccessControlService.
+Import/Export Excel (import/excel, export/excel).
+4. Giáo viên (GiaoVienController + GiaoVienView.vue)
+CRUD giáo viên; đọc theo Teachers.View / cấu hình hệ thống cho thêm-sửa-xóa.
+5. Lớp học (LopHocController + LopHocView.vue)
+CRUD lớp (GVCN, khối, năm học…).
+6. Môn học (MonHocController + MonHocView.vue)
+CRUD môn (số tiết, hệ số thi, giáo viên phụ trách).
+7. Thời khóa biểu (LichHocController + LichHocView.vue)
+CRUD lịch học (theo lớp/môn/GV, thứ, tiết, phòng).
+8. Điểm số & học bạ (DiemSoController + DiemSoView.vue)
+Đọc điểm theo lớp/môn/học kỳ; chi tiết một bản ghi; audit trail theo MaDiem.
+Upsert đơn / bulk; import Excel.
+Xóa bản ghi điểm.
+Bảng điểm: JSON, Excel, PDF (BangDiemPdfExporter, QuestPDF).
+Thống kê điểm (theo lớp/khối…).
+Tổng hợp điểm theo học sinh / lớp / khối / toàn trường.
+Tích hợp điểm thành phần (DiemThanhPhan), tính điểm TB (GradeCalculator), validate nhập (ScoreInputValidator, DiemNhapTrangThai), đọc điểm từ aggregate (DiemSoScoreReader).
+9. Khóa nhập điểm theo kỳ (KyHocController)
+Quản lý KyHoc (năm học + học kỳ: khóa, trạng thái workflow).
+Nhật ký workflow (workflow-log).
+Luồng: submit review, approve, reopen (policy System.Configure + ghi audit).
+10. Học phí (HocPhiController + HocPhiView.vue)
+CRUD học phí; phân quyền xem / quản lý (Finance.View / Finance.Manage).
+11. Thông báo (ThongBaoController + ThongBaoView.vue)
+CRUD thông báo; đánh dấu đã đọc (.../read).
+Một số endpoint giới hạn role Admin/Teacher gửi thông báo.
+Realtime (NotificationHub + NotificationRealtimeService): SignalR /hubs/notifications, group theo học sinh cho phụ huynh.
+12. Báo cáo & dashboard (ReportsController + DashboardView.vue)
+Dashboard BGH, kế toán, GVCN (theo năm học, học kỳ, lớp/khối).
+Tải báo cáo (GET .../download) — kết hợp quyền Reports/Finance tùy endpoint.
+13. DSS – Hỗ trợ quyết định (DssController + DssWhatIfView.vue, DssCanhBaoView.vue)
+What-if điểm (POST .../what-if).
+Cảnh báo rớt môn (GET .../canh-bao-roi-mon).
+Dashboard học lực (GET .../dashboard-hoc-luc).
+Can thiệp / mô phỏng (can-thiep, mo-phong) — phân quyền theo Scores/Dashboard.
+14. Audit & nhật ký (AuditLogsController + AuditLogService)
+Đọc nhật ký audit (policy Reports.View).
+Ghi log qua IAuditLogService (dùng trong luồng nghiệp vụ như điểm, kỳ học…).
+15. Hạ tầng & tiện ích chung
+CORS cho frontend dev (localhost:5173, 5174).
+Swagger khi Development.
+DbSeeder: roles, user mẫu, dữ liệu demo (GV, lớp, môn, HS, điểm, học phí, thông báo, kỳ học).
+Validation (EduCodeFormats và các validator trong Services).
+Migrations + script SQL (tạo DB thủ công nếu cần).
+Giao diện người dùng (Vue) — map nhanh
+Route (ước lệ)	View	Ghi chú
+/login
+LoginView
+Đăng nhập, lưu token/permissions
+/dashboard
+DashboardView
+Cần Dashboard.View
+/hoc-sinh
+HocSinhView
+Cần Students.View
+/giao-vien
+GiaoVienView
+Cần Teachers.View
+/lop-hoc, /mon-hoc, /lich-hoc
+Tương ứng
+Role Admin / BGH / Teacher (menu + meta)
+/diem-so
+DiemSoView
+Scores.View
+/hoc-phi
+HocPhiView
+Finance.View
+/thong-bao
+ThongBaoView
+Mở cho user đã login (không bắt permission trong meta)
+/dss/what-if, /dss/canh-bao
+DSS views
+Scores.Edit / Scores.View
+AppLayout.vue: sidebar theo permission/role, dark/light theme, logout.

@@ -73,6 +73,10 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AppPolicies.CanViewDashboard, p => p.RequireClaim("permission", AppPermissions.DashboardView));
     options.AddPolicy(AppPolicies.CanViewReports, p => p.RequireClaim("permission", AppPermissions.ReportsView));
     options.AddPolicy(AppPolicies.CanViewTeachers, p => p.RequireClaim("permission", AppPermissions.TeachersView));
+    options.AddPolicy(AppPolicies.CanManageTeachers, p =>
+        p.RequireAssertion(ctx =>
+            ctx.User.IsInRole(RolePermissionSeeder.Admin) ||
+            ctx.User.IsInRole(RolePermissionSeeder.Bgh)));
 });
 
 builder.Services.AddCors(options =>

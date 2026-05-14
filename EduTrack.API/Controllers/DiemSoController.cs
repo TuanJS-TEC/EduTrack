@@ -496,6 +496,7 @@ public sealed class DiemSoController(
             return ProblemResponses.Of(400, "Môn học không tồn tại");
 
         var data = await BuildBangDiemAsync(maLop, maMon, namHoc, hocKy, ct);
+        data = await FilterBangDiemForParentAsync(data, ct);
         return Ok(data);
     }
 
@@ -509,6 +510,7 @@ public sealed class DiemSoController(
             return ProblemResponses.Of(400, "Môn học không tồn tại");
 
         var data = await BuildBangDiemAsync(maLop, maMon, namHoc, hocKy, ct);
+        data = await FilterBangDiemForParentAsync(data, ct);
 
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Bang diem");
@@ -553,6 +555,7 @@ public sealed class DiemSoController(
             return ProblemResponses.Of(400, "Môn học không tồn tại");
 
         var data = await BuildBangDiemAsync(maLop, maMon, namHoc, hocKy, ct);
+        data = await FilterBangDiemForParentAsync(data, ct);
         var tenMon = data.FirstOrDefault()?.TenMon ?? maMon;
         var pdf = BangDiemPdfExporter.Build(data, maLop, maMon, tenMon, namHoc, hocKy);
         return File(pdf, "application/pdf", $"bang-diem-{maLop}-{maMon}-hk{hocKy}.pdf");
@@ -578,6 +581,7 @@ public sealed class DiemSoController(
             return ProblemResponses.Of(400, "Môn học không tồn tại");
 
         var data = await BuildBangDiemAsync(maLop, maMon, namHoc, hocKy, ct);
+        data = await FilterBangDiemForParentAsync(data, ct);
         return Ok(BuildThongKeResponse(data, top, bottom));
     }
 
@@ -864,6 +868,18 @@ public sealed class DiemSoController(
         tbm < 5 ? "4-5" :
         tbm < 6.5m ? "5-6.5" :
         tbm < 8 ? "6.5-8" : "8-10";
+
+    private async Task<List<BangDiemItemResponse>> FilterBangDiemForParentAsync(
+        List<BangDiemItemResponse> data,
+        CancellationToken ct)
+    {
+        if (!User.IsInRole(RolePermissionSeeder.Parent)) return data;
+        var userId = current.UserId;
+        if (string.IsNullOrEmpty(userId)) return [];
+        var codes = await access.GetParentStudentCodesAsync(userId, ct);
+        if (codes.Count == 0) return [];
+        return data.Where(r => codes.Contains(r.MaHS)).ToList();
+    }
 
     private async Task<List<BangDiemItemResponse>> BuildBangDiemAsync(string maLop, string maMon, string namHoc, byte hocKy, CancellationToken ct)
     {
